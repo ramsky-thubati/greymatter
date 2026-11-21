@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { Graph, GraphTask } from '../core/graph.js'
 import type { TaskState } from '../core/types.js'
-import { api } from './api.js'
+import { ApiError, api } from './api.js'
 import { deleteOutcome, ErrorLine, errorText, Popup } from './Popup.js'
 
 const STATES: { value: TaskState; label: string }[] = [
@@ -33,6 +33,8 @@ export function TaskPopup({
   const [details, setDetails] = useState(live?.details ?? task.details)
   const [error, setError] = useState<string | null>(null)
   const [confirmMessage, setConfirmMessage] = useState<string | null>(null)
+  const [askDelete, setAskDelete] = useState(false)
+  const [flushFailed, setFlushFailed] = useState(false)
 
   useEffect(() => {
     if (!live) onClose()
@@ -75,14 +77,18 @@ export function TaskPopup({
     const patch: { title?: string; details?: string } = {}
     if (title !== live.title) patch.title = title
     if (details !== live.details) patch.details = details
-    if (Object.keys(patch).length > 0) {
+    if (!flushFailed && Object.keys(patch).length > 0) {
       setError(null)
       try {
         await api.updateTask(projectId, id, patch)
       } catch (e) {
         setError(errorText(e))
-        setTitle(live.title)
-        setDetails(live.details)
+        if (e instanceof ApiError && e.status === 400) {
+          setTitle(live.title)
+          setDetails(live.details)
+        } else {
+          setFlushFailed(true)
+        }
         return
       }
     }
@@ -181,9 +187,24 @@ export function TaskPopup({
           <button onClick={() => setConfirmMessage(null)}>Cancel</button>
         </div>
       )}
+      {askDelete && (
+        <div className="popup-confirm">
+          <p>Delete {id}?</p>
+          <button
+            className="danger"
+            onClick={() => {
+              setAskDelete(false)
+              void remove(false)
+            }}
+          >
+            Yes
+          </button>
+          <button onClick={() => setAskDelete(false)}>No</button>
+        </div>
+      )}
       <div className="popup-actions">
         {onBranchFrom && <button onClick={() => onBranchFrom(live.num)}>Branch from here</button>}
-        <button className="danger" onClick={() => void remove(false)}>
+        <button className="danger" onClick={() => setAskDelete(true)}>
           Delete
         </button>
       </div>

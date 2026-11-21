@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { Graph, GraphBranch } from '../core/graph.js'
-import { api } from './api.js'
+import { ApiError, api } from './api.js'
 import { deleteOutcome, ErrorLine, errorText, Popup } from './Popup.js'
 
 function subtreeBranchIds(graph: Graph, branchId: number): Set<number> {
@@ -37,6 +37,8 @@ export function BranchPopup({
   const [purpose, setPurpose] = useState(live?.purpose ?? branch.purpose)
   const [error, setError] = useState<string | null>(null)
   const [confirmMessage, setConfirmMessage] = useState<string | null>(null)
+  const [askDelete, setAskDelete] = useState(false)
+  const [flushFailed, setFlushFailed] = useState(false)
 
   useEffect(() => {
     if (!live) onClose()
@@ -79,14 +81,18 @@ export function BranchPopup({
     const patch: { name?: string; purpose?: string } = {}
     if (name !== live.name) patch.name = name
     if (purpose !== live.purpose) patch.purpose = purpose
-    if (Object.keys(patch).length > 0) {
+    if (!flushFailed && Object.keys(patch).length > 0) {
       setError(null)
       try {
         await api.updateBranch(projectId, live.id, patch)
       } catch (e) {
         setError(errorText(e))
-        setName(live.name)
-        setPurpose(live.purpose)
+        if (e instanceof ApiError && e.status === 400) {
+          setName(live.name)
+          setPurpose(live.purpose)
+        } else {
+          setFlushFailed(true)
+        }
         return
       }
     }
@@ -104,6 +110,12 @@ export function BranchPopup({
       setError(outcome.kind === 'error' ? outcome.message : null)
     }
   }
+
+  const taskCount = live.taskNums.length
+  const deletePrompt =
+    taskCount > 0
+      ? `Delete branch ${live.name} and its ${taskCount} ${taskCount === 1 ? 'task' : 'tasks'}?`
+      : `Delete branch ${live.name}?`
 
   const excluded = new Set(
     [...subtreeBranchIds(graph, live.id)].flatMap((id) => graph.branches.find((b) => b.id === id)?.taskNums ?? []),
@@ -155,9 +167,24 @@ export function BranchPopup({
           <button onClick={() => setConfirmMessage(null)}>Cancel</button>
         </div>
       )}
+      {askDelete && (
+        <div className="popup-confirm">
+          <p>{deletePrompt}</p>
+          <button
+            className="danger"
+            onClick={() => {
+              setAskDelete(false)
+              void remove(false)
+            }}
+          >
+            Yes
+          </button>
+          <button onClick={() => setAskDelete(false)}>No</button>
+        </div>
+      )}
       <div className="popup-actions">
         <button onClick={() => onEditLinks(live.id)}>Edit links</button>
-        <button className="danger" onClick={() => void remove(false)}>
+        <button className="danger" onClick={() => setAskDelete(true)}>
           Delete
         </button>
       </div>
