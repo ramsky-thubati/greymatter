@@ -40,6 +40,25 @@ export function isDirty(live: GraphTask, d: TaskDraft): boolean {
   return Object.keys(patch).length > 0 || add.length > 0 || remove.length > 0
 }
 
+export function rebaseDraft(
+  base: TaskDraft,
+  draft: TaskDraft,
+  live: GraphTask,
+  exists: (num: number) => boolean = () => true,
+): TaskDraft {
+  const added = draft.blockedBy.filter((n) => !base.blockedBy.includes(n))
+  const removed = base.blockedBy.filter((n) => !draft.blockedBy.includes(n))
+  const blockedBy = [...live.blockedBy.filter((n) => !added.includes(n)), ...added].filter(
+    (n) => !removed.includes(n) && exists(n),
+  )
+  return {
+    title: draft.title === base.title ? live.title : draft.title,
+    details: draft.details === base.details ? live.details : draft.details,
+    state: draft.state === base.state ? live.state : draft.state,
+    blockedBy,
+  }
+}
+
 export async function saveDraft(projectId: number, live: GraphTask, d: TaskDraft): Promise<void> {
   const { patch, add, remove } = diffDraft(live, d)
   const id = taskLabel(live.num)

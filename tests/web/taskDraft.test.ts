@@ -1,6 +1,6 @@
 import { afterEach, expect, test, vi } from 'vitest'
 import { api } from '../../src/web/api.js'
-import { diffDraft, draftOf, isDirty, saveDraft } from '../../src/web/taskDraft.js'
+import { diffDraft, draftOf, isDirty, rebaseDraft, saveDraft } from '../../src/web/taskDraft.js'
 import { demoGraph } from './fixtures.js'
 
 afterEach(() => vi.restoreAllMocks())
@@ -51,4 +51,26 @@ test('saveDraft skips an empty patch and stops at the first failure', async () =
   await expect(saveDraft(1, t, { ...draftOf(t), blockedBy: [1] })).rejects.toThrow('no')
   expect(api.updateTask).not.toHaveBeenCalled()
   expect(add).not.toHaveBeenCalled()
+})
+
+test('rebase: untouched fields follow the server, touched ones stay', () => {
+  const t = live()
+  const base = draftOf(t)
+  const draft = { ...base, title: 'Mine' }
+  const server = { ...t, title: 'Theirs', details: 'from Claude', state: 'done' as const }
+  expect(rebaseDraft(base, draft, server)).toEqual({ ...draftOf(server), title: 'Mine' })
+  expect(diffDraft(server, rebaseDraft(base, draft, server))).toEqual({ patch: { title: 'Mine' }, add: [], remove: [] })
+})
+
+test('rebase: blocker edits replay on top of the server list', () => {
+  const t = { ...live(), blockedBy: [3] }
+  const base = draftOf(t)
+  expect(rebaseDraft(base, { ...base, blockedBy: [3, 1] }, { ...t, blockedBy: [3, 2] }).blockedBy).toEqual([3, 2, 1])
+  expect(rebaseDraft(base, { ...base, blockedBy: [] }, { ...t, blockedBy: [3, 2] }).blockedBy).toEqual([2])
+})
+
+test('rebase: drops blockers whose task is gone', () => {
+  const t = { ...live(), blockedBy: [] }
+  const base = draftOf(t)
+  expect(rebaseDraft(base, { ...base, blockedBy: [1, 2] }, t, (n) => n !== 2).blockedBy).toEqual([1])
 })

@@ -90,6 +90,12 @@ test('add blocker list skips self and current blockers', () => {
   expect(names.some((n) => n?.includes('Buy lamps'))).toBe(true)
 })
 
+test('add blocker menu scrolls when long', () => {
+  show()
+  fireEvent.pointerDown(screen.getByRole('button', { name: 'Add blocker' }), { button: 0 })
+  expect(screen.getByRole('menu').classList.contains('scroll')).toBe(true)
+})
+
 test('Enter in Title does not save', () => {
   const s = spyAll()
   show()
@@ -135,6 +141,24 @@ test('refresh keeps the draft; task gone closes', () => {
   const g = demoGraph()
   rerenderWith({ ...g, tasks: g.tasks.filter((t) => t.num !== 3) })
   expect(h.onClose).toHaveBeenCalled()
+})
+
+test('Save after Claude changed other fields sends only my edit', async () => {
+  const s = spyAll()
+  const { rerenderWith } = show()
+  fireEvent.change(title(), { target: { value: 'Mine' } })
+  rerenderWith(withTask(demoGraph(), 3, { details: 'changed by Claude', state: 'done', blockedBy: [1, 2] }))
+  expect((screen.getByLabelText('Details') as HTMLTextAreaElement).value).toBe('changed by Claude')
+  fireEvent.click(save())
+  await waitFor(() => expect(s.update).toHaveBeenCalledWith(1, 'T-3', { title: 'Mine' }))
+  expect(s.remove).not.toHaveBeenCalled()
+  expect(s.add).not.toHaveBeenCalled()
+})
+
+test('a refresh with no edits leaves the dialog clean', () => {
+  const { rerenderWith } = show()
+  rerenderWith(withTask(demoGraph(), 3, { details: 'changed by Claude' }))
+  expect(save().disabled).toBe(true)
 })
 
 test('partial save failure keeps the unsaved part', async () => {

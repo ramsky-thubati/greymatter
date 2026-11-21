@@ -5,7 +5,7 @@ import { api } from '../api.js'
 import { taskLabel } from '../blockers.js'
 import { errorText } from '../errors.js'
 import type { DeleteTarget } from '../impact.js'
-import { CARD_H, computeLayout } from '../layout.js'
+import { computeLayout, forkPath } from '../layout.js'
 import { PlusIcon } from '../ui/icons.js'
 import { useToast } from '../ui/Toast.js'
 import { BlockerPopover } from './BlockerPopover.js'
@@ -29,7 +29,6 @@ export interface GraphViewProps {
 
 const LINE = 0.3
 const ADD_R = 1
-const CURVE = 1.2
 
 export function GraphView(props: GraphViewProps) {
   const { graph } = props
@@ -72,10 +71,7 @@ export function GraphView(props: GraphViewProps) {
             ))}
             {L.forks.map((f) => {
               const color = byId.get(f.branchId)!.color
-              const y0 = f.from.y + CARD_H / 2
-              const r = Math.min(CURVE, f.to.y - y0, f.to.x - f.from.x)
-              const d = `M ${f.from.x} ${y0} V ${f.to.y - r} Q ${f.from.x} ${f.to.y} ${f.from.x + r} ${f.to.y} H ${f.to.x}`
-              return <path key={f.branchId} d={d} fill="none" stroke={color} strokeWidth={LINE} />
+              return <path key={f.branchId} d={forkPath(f.from, f.to)} fill="none" stroke={color} strokeWidth={LINE} />
             })}
             {L.lanes.map((l) => (
               <g key={l.branchId}>
@@ -107,9 +103,14 @@ export function GraphView(props: GraphViewProps) {
                 <button
                   type="button"
                   className="lane-label"
-                  style={{ left: `${l.labelX}rem`, top: `${l.y}rem`, background: l.color }}
+                  style={{
+                    left: `${l.labelX + l.labelW}rem`,
+                    top: `${l.y}rem`,
+                    maxWidth: `${l.labelW}rem`,
+                    background: l.color,
+                  }}
                   onClick={() => props.onOpenBranch(b.id)}
-                  title={b.purpose || undefined}
+                  title={b.purpose ? `${b.name} — ${b.purpose}` : b.name}
                 >
                   {b.name}
                 </button>

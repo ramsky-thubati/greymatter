@@ -35,12 +35,14 @@
 .lane-label {
   position: absolute;
   height: 2rem;
-  transform: translateY(-50%);
+  line-height: 2rem;
+  transform: translate(-100%, -50%);
   border: 0;
   border-radius: var(--r-pill);
   padding: 0 0.9rem;
-  display: flex;
-  align-items: center;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
   color: #fff;
   font: inherit;
   font-weight: 700;

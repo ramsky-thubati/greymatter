@@ -4,7 +4,7 @@ import type { Graph } from '../../core/graph.js'
 import { FLAGGED_NOTE, findTask, taskLabel } from '../blockers.js'
 import { errorText } from '../errors.js'
 import type { DeleteTarget } from '../impact.js'
-import { draftOf, isDirty, saveDraft, type TaskDraft } from '../taskDraft.js'
+import { draftOf, isDirty, rebaseDraft, saveDraft, type TaskDraft } from '../taskDraft.js'
 import { Dialog } from '../ui/Dialog.js'
 import { TextField } from '../ui/Field.js'
 import { ChevronDownIcon, CloseIcon, PlusIcon, WarnIcon } from '../ui/icons.js'
@@ -26,7 +26,7 @@ export function TaskDialog({
   onDelete(target: DeleteTarget): void
 }) {
   const live = findTask(graph, num)
-  const [draft, setDraft] = useState<TaskDraft | null>(() => (live ? draftOf(live) : null))
+  const [s, setS] = useState(() => (live ? { seen: live, base: draftOf(live), draft: draftOf(live) } : null))
   const [busy, setBusy] = useState(false)
   const toast = useToast()
 
@@ -34,10 +34,16 @@ export function TaskDialog({
     if (!live) onClose()
   }, [live, onClose])
 
-  if (!live || !draft) return null
+  if (live && s && s.seen !== live) {
+    const exists = (n: number) => n !== num && findTask(graph, n) !== undefined
+    setS({ seen: live, base: draftOf(live), draft: rebaseDraft(s.base, s.draft, live, exists) })
+  }
 
+  if (!live || !s) return null
+
+  const { draft } = s
   const dirty = isDirty(live, draft)
-  const set = (patch: Partial<TaskDraft>) => setDraft({ ...draft, ...patch })
+  const set = (patch: Partial<TaskDraft>) => setS({ ...s, draft: { ...draft, ...patch } })
   const candidates = graph.tasks.filter((t) => t.num !== num && !draft.blockedBy.includes(t.num))
 
   const save = async () => {
@@ -119,7 +125,7 @@ export function TaskDialog({
               </button>
             </Menu.Trigger>
             <Menu.Portal>
-              <Menu.Content className="menu" align="start" sideOffset={4}>
+              <Menu.Content className="menu scroll" align="start" sideOffset={4}>
                 {candidates.map((t) => (
                   <Menu.Item
                     key={t.num}

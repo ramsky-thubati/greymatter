@@ -1,8 +1,10 @@
 import { describe, expect, test } from 'vitest'
 import {
   ADD_GAP,
+  CARD_H,
   CARD_W,
   computeLayout,
+  forkPath,
   LABEL_GAP,
   LANE_H,
   labelWidth,
@@ -161,4 +163,14 @@ describe('computeLayout', () => {
     expect(L.lanes[0]!.stuck).toBe(true)
     expect(L.lanes[0]!.labelX + labelWidth('main') + STUCK_W + LABEL_GAP).toBeLessThanOrEqual(card(L, 1).x + 1e-9)
   })
+})
+
+test('fork path curves toward a lane that starts left of its root', () => {
+  const y0 = 2 + CARD_H / 2
+  expect(forkPath({ x: 30, y: 2 }, { x: 10, y: 20 })).toBe(`M 30 ${y0} V ${20 - 1.2} Q 30 20 ${30 - 1.2} 20 H 10`)
+})
+
+test('fork path curves right for a lane that starts right of its root', () => {
+  const y0 = 2 + CARD_H / 2
+  expect(forkPath({ x: 10, y: 2 }, { x: 30, y: 20 })).toBe(`M 10 ${y0} V ${20 - 1.2} Q 10 20 ${10 + 1.2} 20 H 30`)
 })

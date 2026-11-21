@@ -1,5 +1,5 @@
 import * as Popover from '@radix-ui/react-popover'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { Graph, GraphTask } from '../../core/graph.js'
 import { api } from '../api.js'
 import { blocks, findTask, taskLabel } from '../blockers.js'
@@ -34,6 +34,12 @@ export function BlockerPopover({
   const [confirm, setConfirm] = useState<Link | null>(null)
   const anchorRef = useMemo(() => ({ current: anchor }), [anchor])
   const self = findTask(graph, num)
+  const empty = !self || (self.blockedBy.length === 0 && blocks(graph, num).length === 0)
+
+  useEffect(() => {
+    if (empty || !anchor.isConnected) onClose()
+  })
+
   if (!self) return null
 
   const blockedBy = self.blockedBy.flatMap((n) => {

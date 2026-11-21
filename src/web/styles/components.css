@@ -526,7 +526,7 @@ ul.boxed {
   padding: 0.4rem 0.9rem;
 }
 .menu.scroll {
-  max-height: 20rem;
+  max-height: min(20rem, var(--radix-dropdown-menu-content-available-height, 20rem));
   overflow-y: auto;
 }
 

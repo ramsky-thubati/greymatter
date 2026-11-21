@@ -124,3 +124,15 @@ export function computeLayout(graph: Graph): Layout {
     checkpoints,
   }
 }
+
+const CURVE = 1.2
+
+type Point = { x: number; y: number }
+
+export function forkPath(from: Point, to: Point): string {
+  const y0 = from.y + CARD_H / 2
+  const dx = to.x - from.x
+  const r = Math.max(0, Math.min(CURVE, to.y - y0, Math.abs(dx)))
+  const bend = from.x + Math.sign(dx) * r
+  return `M ${from.x} ${y0} V ${to.y - r} Q ${from.x} ${to.y} ${bend} ${to.y} H ${to.x}`
+}

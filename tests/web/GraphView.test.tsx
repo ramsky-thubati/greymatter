@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { afterEach, expect, test, vi } from 'vitest'
 import type { Graph } from '../../src/core/graph.js'
 import { GraphView } from '../../src/web/graph/GraphView.js'
+import { computeLayout } from '../../src/web/layout.js'
 import { ToastProvider } from '../../src/web/ui/Toast.js'
 import { demoGraph, makeGraph } from './fixtures.js'
 
@@ -122,6 +123,33 @@ test('empty project shows the pill and add button', () => {
   expect(screen.getByRole('button', { name: 'main' })).toBeTruthy()
   expect(screen.getByRole('button', { name: 'Add task to main' })).toBeTruthy()
   expect(container.querySelectorAll('[data-task]')).toHaveLength(0)
+})
+
+test('popover closes when its icon goes away', () => {
+  const h = handlers()
+  const ui = (g: Graph) => (
+    <ToastProvider>
+      <GraphView projectId={1} graph={g} {...h} />
+    </ToastProvider>
+  )
+  const { rerender, container } = render(ui(demoGraph()))
+  const padlock = container.querySelector('[data-task="T-5"]')!.querySelector('[aria-label="Blocked"]')!
+  fireEvent.click(padlock)
+  expect(screen.getByText('Blocked by')).toBeTruthy()
+  const g = demoGraph()
+  rerender(ui({ ...g, tasks: g.tasks.map((t) => (t.num === 3 ? { ...t, state: 'done' as const } : t)) }))
+  expect(screen.queryByText('Blocked by')).toBeNull()
+})
+
+test('lane label is capped to its reserved room, pinned by its right edge', () => {
+  const name = 'M'.repeat(60)
+  const g = makeGraph([{ id: 1, name }], [{ num: 1, branchId: 1, seq: 1 }])
+  const lane = computeLayout(g).lanes[0]!
+  show(g)
+  const pill = screen.getByRole('button', { name })
+  expect(pill.style.maxWidth).toBe(`${lane.labelW}rem`)
+  expect(pill.style.left).toBe(`${lane.labelX + lane.labelW}rem`)
+  expect(pill.title).toContain(name)
 })
 
 test('sizes are rem', () => {

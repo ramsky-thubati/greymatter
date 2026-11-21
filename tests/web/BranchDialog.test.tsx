@@ -133,6 +133,17 @@ test('refresh keeps the draft; branch gone closes', () => {
   expect(h.onClose).toHaveBeenCalled()
 })
 
+test('Save after Claude changed the purpose sends only my edit', async () => {
+  const update = vi.spyOn(api, 'updateBranch').mockResolvedValue({} as never)
+  const { rerenderWith } = show()
+  fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Lights' } })
+  const g = nested()
+  rerenderWith({ ...g, branches: g.branches.map((b) => (b.id === 2 ? { ...b, purpose: 'from Claude', color: '#0e7c86' } : b)) })
+  expect((screen.getByLabelText('Purpose') as HTMLTextAreaElement).value).toBe('from Claude')
+  fireEvent.click(save())
+  await waitFor(() => expect(update).toHaveBeenCalledWith(1, 2, { name: 'Lights' }))
+})
+
 function showNew(fromTask?: number) {
   const create = vi.spyOn(api, 'createBranch').mockResolvedValue({} as never)
   const onClose = vi.fn()

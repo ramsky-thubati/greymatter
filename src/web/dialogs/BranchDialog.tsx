@@ -53,7 +53,7 @@ export function BranchDialog({
   onDelete(target: DeleteTarget): void
 }) {
   const live = graph.branches.find((b) => b.id === branchId)
-  const [draft, setDraft] = useState<BranchDraft | null>(() => (live ? draftOf(live) : null))
+  const [s, setS] = useState(() => (live ? { seen: live, base: draftOf(live), draft: draftOf(live) } : null))
   const [busy, setBusy] = useState(false)
   const toast = useToast()
 
@@ -61,11 +61,28 @@ export function BranchDialog({
     if (!live) onClose()
   }, [live, onClose])
 
-  if (!live || !draft) return null
+  if (live && s && s.seen !== live) {
+    const fresh = draftOf(live)
+    const keep = <K extends keyof BranchDraft>(k: K) => (s.draft[k] === s.base[k] ? fresh[k] : s.draft[k])
+    const root = keep('root')
+    setS({
+      seen: live,
+      base: fresh,
+      draft: {
+        name: keep('name'),
+        purpose: keep('purpose'),
+        color: keep('color'),
+        root: root === null || findTask(graph, root) ? root : fresh.root,
+      },
+    })
+  }
 
+  if (!live || !s) return null
+
+  const { draft } = s
   const patch = diff(live, draft)
   const dirty = Object.keys(patch).length > 0
-  const set = (p: Partial<BranchDraft>) => setDraft({ ...draft, ...p })
+  const set = (p: Partial<BranchDraft>) => setS({ ...s, draft: { ...draft, ...p } })
   const inside = subtreeBranchIds(graph, branchId)
   const forkable = graph.tasks.filter((t) => !inside.has(t.branchId))
   const rootTask = draft.root === null ? undefined : findTask(graph, draft.root)

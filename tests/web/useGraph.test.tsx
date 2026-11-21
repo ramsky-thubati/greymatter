@@ -1,8 +1,10 @@
 // @vitest-environment jsdom
-import { act, renderHook } from '@testing-library/react'
+import { act, cleanup, fireEvent, renderHook, screen } from '@testing-library/react'
+import type { ReactNode } from 'react'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import type { Graph } from '../../src/core/graph.js'
 import { api } from '../../src/web/api.js'
+import { ToastProvider } from '../../src/web/ui/Toast.js'
 import { useGraph } from '../../src/web/useGraph.js'
 
 class FakeSource {
@@ -24,6 +26,7 @@ beforeEach(() => {
   vi.stubGlobal('EventSource', FakeSource)
 })
 afterEach(() => {
+  cleanup()
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
 })
@@ -59,4 +62,14 @@ test('out-of-order responses do not overwrite a newer one', async () => {
   await act(async () => pending[1]!(newer))
   await act(async () => pending[0]!(g(1)))
   expect(result.current.graph?.liveVersion).toBe(9)
+})
+
+test('a failed first load shows a toast with Retry', async () => {
+  const get = vi.spyOn(api, 'getGraph').mockRejectedValueOnce(new Error('server down')).mockResolvedValueOnce(g(1))
+  const wrapper = ({ children }: { children: ReactNode }) => <ToastProvider>{children}</ToastProvider>
+  const { result } = renderHook(() => useGraph(1), { wrapper })
+  expect(await screen.findByText('server down')).toBeTruthy()
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Retry' })))
+  expect(get).toHaveBeenCalledTimes(2)
+  expect(result.current.graph?.project.id).toBe(1)
 })
