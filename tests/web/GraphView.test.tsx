@@ -152,6 +152,12 @@ test('lane label is capped to its reserved room, pinned by its right edge', () =
   expect(pill.title).toContain(name)
 })
 
+test('checkpoint draws as a path', () => {
+  const { container } = show()
+  const line = container.querySelector('path.cp-line')
+  expect(line?.getAttribute('d')).toMatch(/^M /)
+})
+
 test('sizes are rem', () => {
   const { container, card } = show()
   const graph = container.querySelector<HTMLElement>('.graph')!

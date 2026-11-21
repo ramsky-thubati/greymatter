@@ -10,6 +10,9 @@ export const ADD_GAP = 3
 export const STUCK_W = 3.6
 const LEFT = 0.5
 const FORK_GAP = 1.5
+const GAP = (STEP - CARD_W) / 2
+
+type Point = { x: number; y: number }
 
 export const labelWidth = (name: string): number => 1.8 + 0.55 * name.length
 
@@ -30,15 +33,17 @@ export interface Layout {
   }[]
   cards: { num: number; x: number; y: number }[]
   forks: { branchId: number; from: { x: number; y: number }; to: { x: number; y: number } }[]
-  checkpoints: { x: number; label: string }[]
+  checkpoints: { label: string; labelX: number; points: Point[] }[]
 }
 
 export function computeLayout(graph: Graph): Layout {
-  const taskBranch = new Map(graph.tasks.map((t) => [t.num, t.branchId]))
+  const taskOf = new Map(graph.tasks.map((t) => [t.num, t]))
+  const byId = new Map(graph.branches.map((b) => [b.id, b]))
+  const rootSeq = (id: number) => taskOf.get(byId.get(id)?.rootTaskNum ?? -1)?.seq ?? 0
   const children = new Map<number, number[]>()
   const roots: number[] = []
   for (const b of graph.branches) {
-    const parent = b.rootTaskNum === null ? undefined : taskBranch.get(b.rootTaskNum)
+    const parent = b.rootTaskNum === null ? undefined : taskOf.get(b.rootTaskNum)?.branchId
     if (parent === undefined || parent === b.id) roots.push(b.id)
     else children.set(parent, [...(children.get(parent) ?? []), b.id])
   }
@@ -46,61 +51,53 @@ export function computeLayout(graph: Graph): Layout {
   const visit = (id: number) => {
     if (order.includes(id)) return
     order.push(id)
-    for (const c of children.get(id) ?? []) visit(c)
+    for (const c of [...(children.get(id) ?? [])].sort((a, b) => rootSeq(b) - rootSeq(a))) visit(c)
   }
   roots.forEach(visit)
   for (const b of graph.branches) visit(b.id)
 
-  const byId = new Map(graph.branches.map((b) => [b.id, b]))
-  const laneY = new Map(order.map((id, i) => [id, TOP + i * LANE_H]))
-  const firstTask = new Set(graph.branches.flatMap((b) => (b.taskNums[0] === undefined ? [] : [b.taskNums[0]])))
-
-  const columns = [
-    ...graph.tasks.map((t) => ({ seq: t.seq, task: t.num })),
-    ...graph.checkpoints.map((c) => ({ seq: c.seq, cp: c })),
-  ].sort((a, b) => a.seq - b.seq)
-
+  const laneY = order.map((_, i) => TOP + i * LANE_H)
+  const cps = [...graph.checkpoints].sort((a, b) => a.seq - b.seq)
+  const segOf = (seq: number) => cps.filter((c) => c.seq < seq).length
+  const lineX: number[][] = cps.map(() => [])
   const cardAt = new Map<number, { num: number; x: number; y: number }>()
-  const labelAt = new Map<number, number>()
-  const checkpoints: Layout['checkpoints'] = []
 
-  const minLabelX = (branchId: number) => {
-    const root = byId.get(branchId)?.rootTaskNum
-    const parent = root === null || root === undefined ? undefined : cardAt.get(root)
-    return parent ? parent.x + CARD_W / 2 + FORK_GAP : LEFT
-  }
-
-  let prevX = -STEP
-  for (const col of columns) {
-    let x = prevX + STEP
-    if ('task' in col) {
-      const branchId = taskBranch.get(col.task)!
-      if (firstTask.has(col.task)) {
-        const w = labelRoom(byId.get(branchId)!)
-        x = Math.max(x, minLabelX(branchId) + w + LABEL_GAP)
-        labelAt.set(branchId, x - LABEL_GAP - w)
-      }
-      cardAt.set(col.task, { num: col.task, x, y: laneY.get(branchId)! })
-    } else {
-      checkpoints.push({ x: x + CARD_W / 2, label: `v${col.cp.fromVersion} → v${col.cp.toVersion}` })
-    }
-    prevX = x
-  }
-
-  const lanes: Layout['lanes'] = order.map((id) => {
+  const lanes: Layout['lanes'] = order.map((id, li) => {
     const b = byId.get(id)!
-    const labelW = labelWidth(b.name)
-    const labelX = labelAt.get(id) ?? minLabelX(id)
-    const last = b.taskNums.length ? cardAt.get(b.taskNums[b.taskNums.length - 1]!) : undefined
+    const y = laneY[li]!
+    const room = labelRoom(b)
+    const parent = b.rootTaskNum === null ? undefined : cardAt.get(b.rootTaskNum)
+    let labelX = parent ? parent.x + CARD_W / 2 + FORK_GAP : LEFT
+    let prev: number | undefined
+    let floor = -Infinity
+    let k = 0
+    const placeLine = () => {
+      let x = prev !== undefined ? prev + CARD_W + GAP : li > 0 ? lineX[k]![li - 1]! : LEFT
+      if (k > 0) x = Math.max(x, lineX[k - 1]![li]! + GAP)
+      lineX[k]![li] = x
+      if (prev === undefined && x >= labelX) labelX = x + GAP
+      floor = x + GAP
+      k++
+    }
+    for (const num of b.taskNums) {
+      const seg = segOf(taskOf.get(num)!.seq)
+      while (k < seg) placeLine()
+      const x = Math.max(prev === undefined ? labelX + room + LABEL_GAP : prev + STEP, floor)
+      if (prev === undefined) labelX = x - LABEL_GAP - room
+      cardAt.set(num, { num, x, y })
+      prev = x
+    }
+    while (k < cps.length) placeLine()
+    const last = prev
     return {
       branchId: id,
-      y: laneY.get(id)!,
+      y,
       color: b.color,
       stuck: b.stuck,
       labelX,
-      labelW,
-      lineEndX: last ? last.x + CARD_W / 2 : labelX + labelRoom(b),
-      addX: last ? last.x + CARD_W + ADD_GAP : labelX + labelRoom(b) + ADD_GAP,
+      labelW: labelWidth(b.name),
+      lineEndX: last !== undefined ? last + CARD_W / 2 : labelX + room,
+      addX: last !== undefined ? last + CARD_W + ADD_GAP : labelX + room + ADD_GAP,
     }
   })
 
@@ -113,8 +110,19 @@ export function computeLayout(graph: Graph): Layout {
     }
   }
 
+  const checkpoints: Layout['checkpoints'] = cps.map((c, k) => ({
+    label: `v${c.fromVersion} → v${c.toVersion}`,
+    labelX: lineX[k]![0] ?? LEFT,
+    points: lanes.map((l, li) => ({ x: lineX[k]![li]!, y: l.y })),
+  }))
+
   const cards = [...cardAt.values()]
-  const right = Math.max(0, ...lanes.map((l) => l.addX), ...cards.map((c) => c.x + CARD_W))
+  const right = Math.max(
+    0,
+    ...lanes.map((l) => l.addX),
+    ...cards.map((c) => c.x + CARD_W),
+    ...lineX.flat().map((x) => x + GAP),
+  )
   return {
     width: right + 2,
     height: TOP + Math.max(order.length, 1) * LANE_H,
@@ -125,9 +133,25 @@ export function computeLayout(graph: Graph): Layout {
   }
 }
 
+export function checkpointPath(points: Point[], top: number, bottom: number, band: number): string {
+  if (points.length === 0) return ''
+  const [first, ...rest] = points
+  const parts = [`M ${first!.x} ${top} V ${first!.y + band}`]
+  let a = first!
+  for (const b of rest) {
+    if (a.x === b.x) parts.push(`V ${b.y + band}`)
+    else {
+      const m = (a.y + band + b.y - band) / 2
+      parts.push(`C ${a.x} ${m} ${b.x} ${m} ${b.x} ${b.y - band} V ${b.y + band}`)
+    }
+    a = b
+  }
+  parts.push(`V ${bottom}`)
+  return parts.join(' ')
+}
+
 const CURVE = 1.2
 
-type Point = { x: number; y: number }
 
 export function forkPath(from: Point, to: Point): string {
   const y0 = from.y + CARD_H / 2
