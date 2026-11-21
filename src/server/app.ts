@@ -60,6 +60,27 @@ function positiveInt(raw: string, what: string): number {
   return n
 }
 
+class HttpError extends Error {
+  constructor(
+    readonly status: 403 | 415,
+    readonly code: 'forbidden' | 'invalid',
+    message: string,
+  ) {
+    super(message)
+  }
+}
+
+const LOCAL_HOSTS = ['localhost', '127.0.0.1', '[::1]']
+const MUTATING = ['POST', 'PUT', 'PATCH', 'DELETE']
+
+function hostnameOf(host: string): string | null {
+  try {
+    return new URL(`http://${host}`).hostname.toLowerCase()
+  } catch {
+    return null
+  }
+}
+
 const STATUS = { invalid: 400, not_found: 404, conflict: 409 } as const
 
 function errorBody(code: string, message: string, details?: unknown) {
@@ -67,6 +88,9 @@ function errorBody(code: string, message: string, details?: unknown) {
 }
 
 async function readJson<S extends z.ZodType>(c: Context, schema: S): Promise<z.output<S>> {
+  if (!(c.req.header('content-type') ?? '').toLowerCase().startsWith('application/json')) {
+    throw new HttpError(415, 'invalid', 'Content-Type must be application/json')
+  }
   let raw: unknown
   try {
     raw = await c.req.json()
@@ -76,7 +100,7 @@ async function readJson<S extends z.ZodType>(c: Context, schema: S): Promise<z.o
   return schema.parse(raw)
 }
 
-export function createApp(db: Db, events: ProjectEvents, opts: { staticDir?: string } = {}): Hono {
+export function createApp(db: Db, events: ProjectEvents, opts: { staticDir?: string; allowedHosts?: string[] } = {}): Hono {
   const app = new Hono()
 
   const pidOf = (c: Context) => positiveInt(c.req.param('pid') ?? '', 'project id')
@@ -87,7 +111,10 @@ export function createApp(db: Db, events: ProjectEvents, opts: { staticDir?: str
     return result
   }
 
+  const allowedHosts = new Set([...LOCAL_HOSTS, ...(opts.allowedHosts ?? []).map((h) => h.trim().toLowerCase())])
+
   app.onError((err, c) => {
+    if (err instanceof HttpError) return c.json(errorBody(err.code, err.message), err.status)
     if (err instanceof DomainError) {
       return c.json(errorBody(err.code, err.message, err.details), STATUS[err.code])
     }
@@ -96,6 +123,21 @@ export function createApp(db: Db, events: ProjectEvents, opts: { staticDir?: str
     }
     console.error(err)
     return c.json(errorBody('internal', 'Internal server error'), 500)
+  })
+
+  app.use('/api/*', async (c, next) => {
+    const host = c.req.header('host') ?? new URL(c.req.url).host
+    const hostname = hostnameOf(host)
+    if (!hostname || !allowedHosts.has(hostname)) throw new HttpError(403, 'forbidden', 'Host not allowed')
+    const origin = c.req.header('origin')
+    if (origin && MUTATING.includes(c.req.method)) {
+      let originHost: string | null = null
+      try {
+        originHost = new URL(origin).host.toLowerCase()
+      } catch {}
+      if (originHost !== host.toLowerCase()) throw new HttpError(403, 'forbidden', 'Cross-origin request rejected')
+    }
+    await next()
   })
 
   app.get('/api/health', (c) => c.json({ ok: true }))

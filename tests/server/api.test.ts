@@ -166,3 +166,49 @@ describe('static files', () => {
     expect((await app.request('/projects/1')).status).toBe(404)
   })
 })
+
+describe('cross-site protection', () => {
+  const json = { 'content-type': 'application/json' }
+
+  test('foreign Host is 403', async () => {
+    const r = await app.request('http://evil.example/api/health')
+    expect(r.status).toBe(403)
+    expect((await r.json()).error.code).toBe('forbidden')
+  })
+
+  test('local hosts with ports are allowed', async () => {
+    expect((await app.request('http://127.0.0.1:4747/api/health')).status).toBe(200)
+    expect((await app.request('http://[::1]:4747/api/health')).status).toBe(200)
+  })
+
+  test('hosts from allowedHosts are accepted', async () => {
+    const custom = createApp(openDb(':memory:'), new ProjectEvents(), { allowedHosts: ['gm.lan'] })
+    expect((await custom.request('http://gm.lan:4747/api/health')).status).toBe(200)
+  })
+
+  test('cross-origin mutation is 403, same-origin is accepted', async () => {
+    const url = `/api/projects/${pid}/tasks/T-1`
+    const bad = await app.request(url, {
+      method: 'PATCH',
+      headers: { ...json, origin: 'http://evil.example' },
+      body: JSON.stringify({ title: 'x' }),
+    })
+    expect(bad.status).toBe(403)
+    const ok = await app.request(url, {
+      method: 'PATCH',
+      headers: { ...json, origin: 'http://localhost' },
+      body: JSON.stringify({ title: 'x' }),
+    })
+    expect(ok.status).toBe(200)
+  })
+
+  test('non-JSON content type on POST is 415', async () => {
+    const r = await app.request('/api/projects', {
+      method: 'POST',
+      headers: { 'content-type': 'text/plain' },
+      body: JSON.stringify({ name: 'x' }),
+    })
+    expect(r.status).toBe(415)
+    expect((await r.json()).error.code).toBe('invalid')
+  })
+})
