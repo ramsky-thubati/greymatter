@@ -6,6 +6,7 @@ import { BranchPopup } from './BranchPopup.js'
 import { CreateBranchPopup, CreateProjectPopup, CreateTaskPopup } from './CreatePopups.js'
 import { LinkEditor } from './LinkEditor.js'
 import { MetroMap } from './MetroMap.js'
+import { SummaryTab } from './SummaryTab.js'
 import { TaskPopup } from './TaskPopup.js'
 import { useGraph } from './useGraph.js'
 
@@ -138,7 +139,7 @@ export function App() {
             {graph.tasks.length === 0 && <div className="empty">No tasks yet. Add one with + Task.</div>}
           </>
         )}
-        {tab === 'summary' && graph && <div className="empty">Summary coming soon.</div>}
+        {tab === 'summary' && projectId !== null && graph && <SummaryTab projectId={projectId} />}
       </main>
       {projectId !== null && graph && popup?.kind === 'task' && graphTask(graph, popup.num) && (
         <TaskPopup

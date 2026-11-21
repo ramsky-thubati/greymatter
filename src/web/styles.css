@@ -172,3 +172,39 @@ button.danger {
   display: flex;
   gap: 8px;
 }
+
+.summary-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.summary-actions {
+  display: flex;
+  gap: 8px;
+}
+.summary-text {
+  width: 100%;
+  min-height: 320px;
+  box-sizing: border-box;
+  font-family: ui-monospace, monospace;
+}
+.summary-notice {
+  padding: 6px 10px;
+  border: 1px solid currentColor;
+  border-radius: 6px;
+}
+.summary-error {
+  color: #b00020;
+}
+.summary-versions {
+  list-style: none;
+  padding: 0;
+}
+.summary-versions li {
+  margin-bottom: 16px;
+}
+.summary-versions pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
