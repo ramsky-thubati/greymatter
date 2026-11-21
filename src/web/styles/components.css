@@ -280,6 +280,10 @@
   font-size: 0.88rem;
   color: var(--fg);
 }
+.menu,
+.popover.color-pop {
+  z-index: 55;
+}
 .menu-item {
   position: relative;
   padding: 0.45rem 0.65rem;
