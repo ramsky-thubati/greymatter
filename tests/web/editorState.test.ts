@@ -72,3 +72,12 @@ test('remove ignores existing tasks and bad indexes', () => {
   expect(editorReducer(s, { type: 'remove', piece: 0, index: 4 })).toBe(s)
   expect(editorReducer(s, { type: 'remove', piece: 3, index: 0 })).toBe(s)
 })
+
+test('an empty branch has no pieces and one added task can be saved', () => {
+  const empty = initEditor([])
+  expect(empty.pieces).toEqual([])
+  const s = editorReducer(empty, { type: 'add', title: 'x' })
+  expect(s.pieces).toHaveLength(1)
+  expect(canSave(s)).toBe(true)
+  expect(toOrder(s)).toEqual([{ title: 'x' }])
+})

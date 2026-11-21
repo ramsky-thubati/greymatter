@@ -100,3 +100,17 @@ test('a new task can be removed before saving', () => {
   fireEvent.click(screen.getByRole('button', { name: 'Remove new: oops' }))
   expect(screen.queryByText('new: oops')).toBeNull()
 })
+
+test('an empty branch can get a first task and save it', async () => {
+  const save = vi.spyOn(api, 'setBranchOrder').mockResolvedValue([])
+  const empty = { ...branch, taskNums: [] }
+  const onClose = vi.fn()
+  render(<LinkEditor projectId={1} branch={empty} graph={{ ...graph, branches: [empty], tasks: [] }} onClose={onClose} />)
+  fireEvent.change(screen.getByLabelText('New task title'), { target: { value: 'x' } })
+  fireEvent.click(screen.getByRole('button', { name: '+ New task' }))
+  const saveButton = screen.getByRole('button', { name: 'Save' }) as HTMLButtonElement
+  expect(saveButton.disabled).toBe(false)
+  fireEvent.click(saveButton)
+  await waitFor(() => expect(onClose).toHaveBeenCalled())
+  expect(save).toHaveBeenCalledWith(1, 1, [{ title: 'x' }])
+})

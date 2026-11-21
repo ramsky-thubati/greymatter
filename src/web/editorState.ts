@@ -7,7 +7,7 @@ export type EditorAction =
   | { type: 'remove'; piece: number; index: number }
 
 export const initEditor = (tasks: { num: number; title: string }[]): EditorState => ({
-  pieces: [tasks.map((t) => ({ num: t.num, title: t.title }))],
+  pieces: tasks.length ? [tasks.map((t) => ({ num: t.num, title: t.title }))] : [],
 })
 
 export const isTemp = (item: Item): item is { tempId: string; title: string } => 'tempId' in item
