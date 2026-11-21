@@ -6,6 +6,8 @@ import { getProject } from './projects.js'
 import { nextSeq } from './sequence.js'
 import type { Branch, Task, TaskState } from './types.js'
 
+export const UNFINISHED_BLOCKER = "t.state NOT IN ('done', 'cancelled')"
+
 const STATES: TaskState[] = ['todo', 'in_progress', 'later', 'done', 'cancelled']
 
 interface BranchRow {
@@ -155,6 +157,11 @@ function applyTaskUpdate(
   db.prepare(
     'UPDATE tasks SET title = ?, details = ?, state = ?, flagged = 0 WHERE project_id = ? AND num = ?',
   ).run(title, input.details ?? current.details, input.state ?? current.state, projectId, num)
+  if (input.state === 'cancelled' && current.state !== 'cancelled') {
+    db.prepare(
+      'UPDATE tasks SET flagged = 1 WHERE project_id = ?1 AND num IN (SELECT task_num FROM blockers WHERE project_id = ?1 AND blocker_num = ?2)',
+    ).run(projectId, num)
+  }
   return getTask(db, projectId, num)
 }
 
@@ -174,7 +181,7 @@ export function resumeTask(db: Db, projectId: number, num: number): { task: Task
       .prepare(
         `SELECT b.blocker_num AS n FROM blockers b
          JOIN tasks t ON t.project_id = b.project_id AND t.num = b.blocker_num
-         WHERE b.project_id = ? AND b.task_num = ? AND t.state NOT IN ('done', 'cancelled')
+         WHERE b.project_id = ? AND b.task_num = ? AND ${UNFINISHED_BLOCKER}
          ORDER BY b.blocker_num`,
       )
       .all(projectId, num) as { n: number }[]
