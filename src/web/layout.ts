@@ -12,10 +12,12 @@ export const STUCK_W = 3.6
 const LEFT = 0.5
 const FORK_GAP = 1.5
 const GAP = (STEP - CARD_W) / 2
+const PILL_GAP = 0.25
 
 type Point = { x: number; y: number }
 
 export const labelWidth = (name: string): number => 1.8 + 0.55 * name.length
+export const cpPillWidth = (label: string): number => 1.2 + 0.45 * label.length
 
 const labelRoom = (b: { name: string; stuck: boolean }) => labelWidth(b.name) + (b.stuck ? STUCK_W : 0)
 
@@ -60,6 +62,8 @@ export function computeLayout(graph: Graph): Layout {
   const laneY = order.map((_, i) => TOP + i * LANE_H)
   const cps = [...graph.checkpoints].sort((a, b) => a.seq - b.seq)
   const segOf = (seq: number) => cps.filter((c) => c.seq < seq).length
+  const cpLabel = cps.map((c) => `v${c.fromVersion} → v${c.toVersion}`)
+  const pillW = cpLabel.map(cpPillWidth)
   const lineX: number[][] = cps.map(() => [])
   const cardAt = new Map<number, { num: number; x: number; y: number }>()
 
@@ -74,7 +78,7 @@ export function computeLayout(graph: Graph): Layout {
     let k = 0
     const placeLine = () => {
       let x = prev !== undefined ? prev + CARD_W + GAP : li > 0 ? lineX[k]![li - 1]! : LEFT
-      if (k > 0) x = Math.max(x, lineX[k - 1]![li]! + GAP)
+      if (k > 0) x = Math.max(x, lineX[k - 1]![li]! + (li === 0 ? (pillW[k - 1]! + pillW[k]!) / 2 + PILL_GAP : GAP))
       lineX[k]![li] = x
       if (prev === undefined && x >= labelX) labelX = x + GAP
       floor = x + GAP
@@ -111,8 +115,8 @@ export function computeLayout(graph: Graph): Layout {
     }
   }
 
-  const checkpoints: Layout['checkpoints'] = cps.map((c, k) => ({
-    label: `v${c.fromVersion} → v${c.toVersion}`,
+  const checkpoints: Layout['checkpoints'] = cps.map((_, k) => ({
+    label: cpLabel[k]!,
     labelX: lineX[k]![0] ?? LEFT,
     points: lanes.map((l, li) => ({ x: lineX[k]![li]!, y: l.y })),
   }))

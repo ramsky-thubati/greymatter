@@ -6,6 +6,7 @@ import {
   CP_PILL_H,
   checkpointPath,
   computeLayout,
+  cpPillWidth,
   forkPath,
   LABEL_GAP,
   LANE_H,
@@ -264,6 +265,19 @@ describe('curved checkpoint lines', () => {
     )
     const [a, b] = computeLayout(g).checkpoints
     a!.points.forEach((p, i) => expect(b!.points[i]!.x).toBeGreaterThan(p.x))
+  })
+
+  test('back-to-back checkpoint pills never overlap', () => {
+    const g = makeGraph(
+      [{ id: 1, name: 'main' }],
+      [
+        { num: 1, branchId: 1, seq: 1 },
+        { num: 2, branchId: 1, seq: 4 },
+      ],
+      [cp(2), { seq: 3, fromVersion: 2, toVersion: 3 }],
+    )
+    const [a, b] = computeLayout(g).checkpoints
+    expect(b!.labelX - a!.labelX).toBeGreaterThanOrEqual((cpPillWidth(a!.label) + cpPillWidth(b!.label)) / 2)
   })
 
   test('line misses a label pill it passes', () => {
