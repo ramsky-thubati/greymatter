@@ -62,6 +62,7 @@ describe('moveTask', () => {
 
   test('moving across a checkpoint keeps the branch line monotonic in seq', () => {
     moveTask(db, p.id, 1, { after: 3 })
+    expect(seqOrder(db, p.id)).toEqual(['T2', 'CP', 'T3', 'T1'])
     const seqs = branchSeqs(db, main)
     expect([...seqs].sort((a, b) => a - b)).toEqual(seqs)
   })
@@ -78,6 +79,11 @@ describe('moveTask', () => {
 })
 
 describe('relinkBranch', () => {
+  test('moves only the out-of-order task', () => {
+    relinkBranch(db, p.id, main, [{ num: 3 }, { num: 1 }, { num: 2 }])
+    expect(seqOrder(db, p.id)).toEqual(['T3', 'T1', 'T2', 'CP'])
+  })
+
   test('cut-and-rejoin keeps branch lines monotonic in seq and creates titled tasks', () => {
     const out = relinkBranch(db, p.id, main, [{ num: 3 }, { num: 1 }, { title: 'mid' }, { num: 2 }])
     expect(out.map((t) => t.title)).toEqual(['c', 'a', 'mid', 'b'])

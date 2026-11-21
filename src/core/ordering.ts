@@ -85,15 +85,21 @@ export function relinkBranch(
     const setPos = db.prepare('UPDATE tasks SET branch_pos = ? WHERE project_id = ? AND num = ?')
     slots.forEach((slot, i) => setPos.run(i + 1, projectId, slot.num))
 
-    let lastAnchorSeq = -Infinity
-    for (const slot of slots) {
-      if (slot.pinnedFloat) continue
-      const seq = currentSeq(db, projectId, slot.num)
-      if (seq > lastAnchorSeq) {
-        slot.anchor = true
-        lastAnchorSeq = seq
+    const candidates = slots.filter((slot) => !slot.pinnedFloat)
+    const seqs = candidates.map((slot) => currentSeq(db, projectId, slot.num))
+    const best = candidates.map(() => 1)
+    const prev = candidates.map(() => -1)
+    let tail = -1
+    candidates.forEach((_, i) => {
+      for (let j = 0; j < i; j++) {
+        if (seqs[j] < seqs[i] && best[j] + 1 > best[i]) {
+          best[i] = best[j] + 1
+          prev[i] = j
+        }
       }
-    }
+      if (tail < 0 || best[i] > best[tail]) tail = i
+    })
+    for (let k = tail; k >= 0; k = prev[k]) candidates[k].anchor = true
 
     const setSeq = db.prepare('UPDATE tasks SET seq = ? WHERE project_id = ? AND num = ?')
     slots.forEach((slot, i) => {
