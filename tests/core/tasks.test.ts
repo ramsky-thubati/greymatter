@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, test } from 'vitest'
+import { BRANCH_COLORS } from '../../src/core/colors.js'
 import { type Db, openDb } from '../../src/core/db.js'
 import { createProject } from '../../src/core/projects.js'
 import { nextSeq, shiftSeqFrom } from '../../src/core/sequence.js'
@@ -138,5 +139,21 @@ describe('sequence', () => {
     createTask(db, q.id, { branchId: mainBranchId(db, q.id), title: 'x' })
     shiftSeqFrom(db, p.id, 1)
     expect(getTask(db, q.id, 1).seq).toBe(1)
+  })
+})
+
+describe('branch colour', () => {
+  test('new branches take the next rotation colour', () => {
+    expect(getBranch(db, p.id, main).color).toBe(BRANCH_COLORS[0])
+    const made = Array.from({ length: 6 }, (_, i) => createBranch(db, p.id, { name: `b${i}` }).color)
+    expect(made).toEqual([...BRANCH_COLORS.slice(1), BRANCH_COLORS[0]])
+  })
+
+  test('updateBranch stores colour lowercase', () => {
+    expect(updateBranch(db, p.id, main, { color: '#ABCDEF' }).color).toBe('#abcdef')
+  })
+
+  test('updateBranch rejects a bad colour', () => {
+    expect(() => updateBranch(db, p.id, main, { color: '#12' })).toThrow('Colour must be #rrggbb')
   })
 })

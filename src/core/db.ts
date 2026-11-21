@@ -1,4 +1,5 @@
 import { DatabaseSync } from 'node:sqlite'
+import { BRANCH_COLORS } from './colors.js'
 
 export type Db = DatabaseSync
 
@@ -15,7 +16,8 @@ CREATE TABLE IF NOT EXISTS branches (
   name TEXT NOT NULL,
   purpose TEXT NOT NULL DEFAULT '',
   root_task_num INTEGER,
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  color TEXT
 );
 CREATE TABLE IF NOT EXISTS tasks (
   project_id INTEGER NOT NULL,
@@ -56,7 +58,27 @@ export function openDb(path: string): Db {
   db.exec('PRAGMA foreign_keys=ON')
   db.exec('PRAGMA journal_mode=WAL')
   db.exec(SCHEMA)
+  migrate(db)
   return db
+}
+
+function migrate(db: Db): void {
+  const cols = db.prepare('PRAGMA table_info(branches)').all() as { name: string }[]
+  if (cols.some((c) => c.name === 'color')) return
+  tx(db, () => {
+    db.exec('ALTER TABLE branches ADD COLUMN color TEXT')
+    const rows = db.prepare('SELECT id, project_id FROM branches ORDER BY project_id, created_at, id').all() as {
+      id: number
+      project_id: number
+    }[]
+    const set = db.prepare('UPDATE branches SET color = ? WHERE id = ?')
+    const seen = new Map<number, number>()
+    for (const r of rows) {
+      const i = seen.get(r.project_id) ?? 0
+      set.run(BRANCH_COLORS[i % BRANCH_COLORS.length], r.id)
+      seen.set(r.project_id, i + 1)
+    }
+  })
 }
 
 export function tx<T>(db: Db, fn: () => T): T {

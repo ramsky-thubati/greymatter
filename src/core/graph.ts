@@ -1,3 +1,4 @@
+import { BRANCH_COLORS } from './colors.js'
 import type { Db } from './db.js'
 import { getProject } from './projects.js'
 import { UNFINISHED_BLOCKER } from './tasks.js'
@@ -69,7 +70,14 @@ export function getGraph(db: Db, projectId: number): Graph {
 
   const branchRows = db
     .prepare('SELECT * FROM branches WHERE project_id = ? ORDER BY created_at, id')
-    .all(projectId) as { id: number; project_id: number; name: string; purpose: string; root_task_num: number | null }[]
+    .all(projectId) as {
+    id: number
+    project_id: number
+    name: string
+    purpose: string
+    root_task_num: number | null
+    color: string | null
+  }[]
   const branches: GraphBranch[] = branchRows.map((r) => {
     const own = tasks.filter((t) => t.branchId === r.id).sort((a, b) => a.branchPos - b.branchPos)
     const next = own.find((t) => t.state === 'todo' || t.state === 'in_progress')
@@ -79,6 +87,7 @@ export function getGraph(db: Db, projectId: number): Graph {
       name: r.name,
       purpose: r.purpose,
       rootTaskNum: r.root_task_num,
+      color: r.color ?? BRANCH_COLORS[0],
       taskNums: own.map((t) => t.num),
       nextTaskNum: next?.num ?? null,
       stuck: next?.blocked ?? false,

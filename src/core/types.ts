@@ -11,6 +11,7 @@ export interface Branch {
   name: string
   purpose: string
   rootTaskNum: number | null
+  color: string
 }
 
 export interface Task {

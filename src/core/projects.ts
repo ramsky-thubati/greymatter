@@ -1,3 +1,4 @@
+import { BRANCH_COLORS } from './colors.js'
 import { type Db, tx } from './db.js'
 import { DomainError } from './errors.js'
 import type { Project } from './types.js'
@@ -20,7 +21,11 @@ export function createProject(db: Db, name: string): Project {
       .prepare('INSERT INTO projects (name, created_at) VALUES (?, ?)')
       .run(clean, now)
     const id = Number(lastInsertRowid)
-    db.prepare("INSERT INTO branches (project_id, name, created_at) VALUES (?, 'main', ?)").run(id, now)
+    db.prepare("INSERT INTO branches (project_id, name, created_at, color) VALUES (?, 'main', ?, ?)").run(
+      id,
+      now,
+      BRANCH_COLORS[0],
+    )
     db.prepare("INSERT INTO summary_versions (project_id, version, body) VALUES (?, 1, '')").run(id)
     return { id, name: clean }
   })

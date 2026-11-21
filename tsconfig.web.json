@@ -10,5 +10,5 @@
     "skipLibCheck": true,
     "types": ["node", "vite/client"]
   },
-  "include": ["src/web", "src/core/graph.ts", "src/core/types.ts"]
+  "include": ["src/web", "src/core/graph.ts", "src/core/types.ts", "src/core/colors.ts"]
 }

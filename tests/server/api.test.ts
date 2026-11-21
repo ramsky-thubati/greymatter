@@ -35,6 +35,14 @@ beforeEach(() => {
   addBlocker(db, pid, 2, 1)
 })
 
+test('PATCH branch colour', async () => {
+  expect((await patch(`/api/projects/${pid}/branches/${main}`, { color: '#00FF00' })).status).toBe(200)
+  const g = await (await get(`/api/projects/${pid}/graph`)).json()
+  expect(g.branches[0].color).toBe('#00ff00')
+  expect((await patch(`/api/projects/${pid}/branches/${main}`, { color: '#00ff0' })).status).toBe(400)
+  expect((await patch(`/api/projects/${pid}/branches/${main}`, { color: 'green' })).status).toBe(400)
+})
+
 test('health', async () => {
   const r = await get('/api/health')
   expect(await r.json()).toEqual({ ok: true })

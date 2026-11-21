@@ -26,6 +26,7 @@ const branchCreateBody = z.object({ name, purpose: z.string().optional(), fromTa
 const branchPatchBody = z.object({
   name: name.optional(),
   purpose: z.string().optional(),
+  color: z.string().optional(),
   rootTask: taskId.nullable().optional(),
 })
 const orderBody = z.object({
@@ -167,7 +168,7 @@ export function createApp(db: Db, events: ProjectEvents, opts: { staticDir?: str
     const bid = bidOf(c)
     const body = await readJson(c, branchPatchBody)
     const branch = tx(db, () => {
-      const renamed = updateBranch(db, pid, bid, { name: body.name, purpose: body.purpose })
+      const renamed = updateBranch(db, pid, bid, { name: body.name, purpose: body.purpose, color: body.color })
       return body.rootTask === undefined ? renamed : moveRoot(db, pid, bid, body.rootTask)
     })
     return c.json(mutated(pid, branch))

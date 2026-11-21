@@ -1,3 +1,4 @@
+import { BRANCH_COLORS, isHexColor } from './colors.js'
 import { type Db, tx } from './db.js'
 import { DomainError } from './errors.js'
 import { formatTaskId } from './ids.js'
@@ -16,6 +17,7 @@ interface BranchRow {
   name: string
   purpose: string
   root_task_num: number | null
+  color: string | null
 }
 
 interface TaskRow {
@@ -36,7 +38,13 @@ const toBranch = (r: BranchRow): Branch => ({
   name: r.name,
   purpose: r.purpose,
   rootTaskNum: r.root_task_num,
+  color: r.color ?? BRANCH_COLORS[0],
 })
+
+export function nextBranchColor(db: Db, projectId: number): string {
+  const { c } = db.prepare('SELECT COUNT(*) AS c FROM branches WHERE project_id = ?').get(projectId) as { c: number }
+  return BRANCH_COLORS[c % BRANCH_COLORS.length]
+}
 
 const toTask = (r: TaskRow): Task => ({
   projectId: r.project_id,
@@ -75,9 +83,16 @@ export function createBranch(
     if (input.fromTaskNum !== undefined) getTask(db, projectId, input.fromTaskNum)
     const { lastInsertRowid } = db
       .prepare(
-        'INSERT INTO branches (project_id, name, purpose, root_task_num, created_at) VALUES (?, ?, ?, ?, ?)',
+        'INSERT INTO branches (project_id, name, purpose, root_task_num, created_at, color) VALUES (?, ?, ?, ?, ?, ?)',
       )
-      .run(projectId, name, input.purpose ?? '', input.fromTaskNum ?? null, new Date().toISOString())
+      .run(
+        projectId,
+        name,
+        input.purpose ?? '',
+        input.fromTaskNum ?? null,
+        new Date().toISOString(),
+        nextBranchColor(db, projectId),
+      )
     return getBranch(db, projectId, Number(lastInsertRowid))
   })
 }
@@ -86,13 +101,17 @@ export function updateBranch(
   db: Db,
   projectId: number,
   branchId: number,
-  input: { name?: string; purpose?: string },
+  input: { name?: string; purpose?: string; color?: string },
 ): Branch {
+  if (input.color !== undefined && !isHexColor(input.color)) {
+    throw new DomainError('invalid', 'Colour must be #rrggbb')
+  }
   return tx(db, () => {
     const current = getBranch(db, projectId, branchId)
     const name = input.name === undefined ? current.name : requireText(input.name, 'Branch name')
     const purpose = input.purpose ?? current.purpose
-    db.prepare('UPDATE branches SET name = ?, purpose = ? WHERE id = ?').run(name, purpose, branchId)
+    const color = input.color?.toLowerCase() ?? current.color
+    db.prepare('UPDATE branches SET name = ?, purpose = ?, color = ? WHERE id = ?').run(name, purpose, color, branchId)
     return getBranch(db, projectId, branchId)
   })
 }
