@@ -222,3 +222,58 @@ button.ico:hover,
   border-radius: 0.2rem;
   box-shadow: 0 0 0 0.13rem var(--s-progress);
 }
+
+.dep-pop {
+  width: 19rem;
+  padding: 0.4rem;
+}
+.dep-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--dim);
+  padding: 0.45rem 0.6rem 0.2rem;
+  margin: 0;
+}
+.dep-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.dep-row {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: var(--r-sm);
+}
+.dep-row:hover {
+  background: var(--btn);
+}
+.dep-name {
+  flex: 1;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  padding: 0.45rem 0.3rem 0.45rem 0.6rem;
+  text-align: left;
+  cursor: pointer;
+}
+.dep-title-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dep-st {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--dim);
+  white-space: nowrap;
+}

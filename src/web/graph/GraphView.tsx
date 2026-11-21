@@ -1,7 +1,8 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import type { Graph } from '../../core/graph.js'
 import { CARD_H, computeLayout } from '../layout.js'
 import { PlusIcon } from '../ui/icons.js'
+import { BlockerPopover } from './BlockerPopover.js'
 import { Legend } from './Legend.js'
 import { TaskCard } from './TaskCard.js'
 
@@ -24,6 +25,7 @@ const CURVE = 1.2
 export function GraphView(props: GraphViewProps) {
   const { graph } = props
   const L = useMemo(() => computeLayout(graph), [graph])
+  const [popover, setPopover] = useState<{ num: number; anchor: HTMLElement } | null>(null)
   const byId = new Map(graph.branches.map((b) => [b.id, b]))
   const taskOf = new Map(graph.tasks.map((t) => [t.num, t]))
 
@@ -120,12 +122,23 @@ export function GraphView(props: GraphViewProps) {
                 x={c.x}
                 y={c.y}
                 onOpen={props.onOpenTask}
-                onBlockerIcon={() => {}}
+                onBlockerIcon={(num, anchor) => setPopover({ num, anchor })}
+                activeIcon={popover?.num === c.num}
               />
             )
           })}
         </div>
       </div>
+      {popover && (
+        <BlockerPopover
+          projectId={props.projectId}
+          graph={graph}
+          num={popover.num}
+          anchor={popover.anchor}
+          onOpenTask={props.onOpenTask}
+          onClose={() => setPopover(null)}
+        />
+      )}
       <Legend />
     </div>
   )
