@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Project } from '../core/types.js'
 import { api } from './api.js'
+import { DeleteAlert } from './dialogs/DeleteAlert.js'
 import { NewProjectDialog } from './dialogs/NewProjectDialog.js'
+import type { DeleteTarget } from './impact.js'
 import { errorText } from './errors.js'
 import { GraphView } from './graph/GraphView.js'
 import { HeaderBar } from './HeaderBar.js'
@@ -32,6 +34,7 @@ function Shell() {
   const [projects, setProjects] = useState<Project[] | null>(null)
   const [newProject, setNewProject] = useState(false)
   const [pending, setPending] = useState<Route | null>(null)
+  const [deleting, setDeleting] = useState<DeleteTarget | null>(null)
   const summaryDirty = useRef(false)
 
   const canLeave = useCallback((from: Route, to: Route) => {
@@ -111,7 +114,16 @@ function Shell() {
                 onOpenBranch={() => {}}
                 onAddTask={() => {}}
                 onNewBranch={() => {}}
-                onDelete={() => {}}
+                onDelete={setDeleting}
+              />
+            )}
+            {graph && deleting && route.name === 'project' && (
+              <DeleteAlert
+                projectId={route.projectId}
+                graph={graph}
+                target={deleting}
+                onDone={() => setDeleting(null)}
+                onCancel={() => setDeleting(null)}
               />
             )}
             {route.tab === 'summary' && (

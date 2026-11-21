@@ -1,12 +1,21 @@
 import { useMemo, useState } from 'react'
 import type { Graph } from '../../core/graph.js'
+import type { TaskState } from '../../core/types.js'
+import { api } from '../api.js'
+import { taskLabel } from '../blockers.js'
+import { errorText } from '../errors.js'
+import type { DeleteTarget } from '../impact.js'
 import { CARD_H, computeLayout } from '../layout.js'
 import { PlusIcon } from '../ui/icons.js'
+import { useToast } from '../ui/Toast.js'
 import { BlockerPopover } from './BlockerPopover.js'
+import { CanvasMenu, CardMenu } from './CardMenu.js'
 import { Legend } from './Legend.js'
 import { TaskCard } from './TaskCard.js'
 
-export type DeleteTarget = { kind: 'task'; num: number } | { kind: 'branch'; branchId: number }
+export type { DeleteTarget }
+
+const INTERACTIVE = '.card, .lane-label, .add-task, .stuck-pill, .cp-pill, button'
 
 export interface GraphViewProps {
   projectId: number
@@ -28,10 +37,21 @@ export function GraphView(props: GraphViewProps) {
   const [popover, setPopover] = useState<{ num: number; anchor: HTMLElement } | null>(null)
   const byId = new Map(graph.branches.map((b) => [b.id, b]))
   const taskOf = new Map(graph.tasks.map((t) => [t.num, t]))
+  const toast = useToast()
+
+  const setState = (num: number, state: TaskState) => {
+    api.updateTask(props.projectId, taskLabel(num), { state }).catch((e) => toast.error(errorText(e)))
+  }
 
   return (
     <div className="graph-area">
-      <div className="graph-wrap">
+      <CanvasMenu onNewBranch={() => props.onNewBranch(undefined)}>
+      <div
+        className="graph-wrap"
+        onDoubleClick={(e) => {
+          if (!(e.target as HTMLElement).closest(INTERACTIVE)) props.onNewBranch(undefined)
+        }}
+      >
         <div className="graph" style={{ width: `${L.width}rem`, height: `${L.height}rem` }}>
           <svg
             viewBox={`0 0 ${L.width} ${L.height}`}
@@ -115,20 +135,29 @@ export function GraphView(props: GraphViewProps) {
           {L.cards.map((c) => {
             const t = taskOf.get(c.num)!
             return (
-              <TaskCard
+              <CardMenu
                 key={c.num}
-                task={t}
-                graph={graph}
-                x={c.x}
-                y={c.y}
-                onOpen={props.onOpenTask}
-                onBlockerIcon={(num, anchor) => setPopover({ num, anchor })}
-                activeIcon={popover?.num === c.num}
-              />
+                num={c.num}
+                state={t.state}
+                onState={setState}
+                onNewBranch={(n) => props.onNewBranch(n)}
+                onDelete={props.onDelete}
+              >
+                <TaskCard
+                  task={t}
+                  graph={graph}
+                  x={c.x}
+                  y={c.y}
+                  onOpen={props.onOpenTask}
+                  onBlockerIcon={(num, anchor) => setPopover({ num, anchor })}
+                  activeIcon={popover?.num === c.num}
+                />
+              </CardMenu>
             )
           })}
         </div>
       </div>
+      </CanvasMenu>
       {popover && (
         <BlockerPopover
           projectId={props.projectId}

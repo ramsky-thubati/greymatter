@@ -1,3 +1,4 @@
+import type { HTMLAttributes, Ref } from 'react'
 import type { Graph, GraphTask } from '../../core/graph.js'
 import { FLAGGED_NOTE, hasFork, showsFlag, showsPadlock, taskLabel } from '../blockers.js'
 import { BranchIcon, FlagIcon, PadlockIcon, WarnIcon } from '../ui/icons.js'
@@ -11,6 +12,8 @@ export function TaskCard({
   onOpen,
   onBlockerIcon,
   activeIcon,
+  ref,
+  ...rest
 }: {
   task: GraphTask
   graph: Graph
@@ -19,7 +22,8 @@ export function TaskCard({
   onOpen(num: number): void
   onBlockerIcon(num: number, anchor: HTMLElement): void
   activeIcon?: boolean
-}) {
+  ref?: Ref<HTMLDivElement>
+} & Omit<HTMLAttributes<HTMLDivElement>, 'onClick'>) {
   const classes = ['card']
   if (task.state === 'in_progress') classes.push('in-progress')
   if (task.state === 'cancelled') classes.push('cancelled')
@@ -32,6 +36,8 @@ export function TaskCard({
 
   return (
     <div
+      {...rest}
+      ref={ref}
       role="button"
       tabIndex={0}
       data-task={taskLabel(task.num)}
@@ -39,6 +45,7 @@ export function TaskCard({
       style={{ left: `${x}rem`, top: `${y}rem` }}
       onClick={() => onOpen(task.num)}
       onKeyDown={(e) => {
+        rest.onKeyDown?.(e)
         if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
           e.preventDefault()
           onOpen(task.num)
