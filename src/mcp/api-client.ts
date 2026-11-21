@@ -38,6 +38,7 @@ export interface ApiClient {
   deleteTask(pid: number, task: string, confirm: boolean): Promise<void>
   getSummary(pid: number): Promise<{ version: number; body: string }>
   updateSummary(pid: number, body: string): Promise<{ version: number; body: string }>
+  listSummaryVersions(pid: number): Promise<{ version: number; body: string; frozenAt: string | null }[]>
   createCheckpoint(pid: number): Promise<{ seq: number; fromVersion: number; toVersion: number }>
 }
 
@@ -92,6 +93,7 @@ export function createApiClient(baseUrl: string, fetchFn: typeof fetch = fetch):
     deleteTask: (pid, task, confirm) => call('DELETE', `${t(pid, task)}${confirm ? '?confirm=1' : ''}`),
     getSummary: (pid) => call('GET', `${p(pid)}/summary`),
     updateSummary: (pid, body) => call('PUT', `${p(pid)}/summary`, { body }),
+    listSummaryVersions: (pid) => call('GET', `${p(pid)}/summary/versions`),
     createCheckpoint: (pid) => call('POST', `${p(pid)}/checkpoints`),
   }
 }

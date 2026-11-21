@@ -5,6 +5,8 @@ import { formatTaskId, parseTaskId } from '../core/ids.js'
 import type { Task } from '../core/types.js'
 import { type ApiClient, ApiError } from './api-client.js'
 
+const FLAG_NOTE = 'Note: a task this waited on was cancelled. Check it still makes sense.'
+
 const STATES = ['todo', 'in_progress', 'later', 'done', 'cancelled'] as const
 
 const project = z.string().describe('Project name, e.g. "Engine build"')
@@ -19,6 +21,13 @@ const fail = (text: string): Result => ({ content: [{ type: 'text', text }], isE
 const tid = (raw: string) => formatTaskId(parseTaskId(raw))
 const list = (nums: number[]) => nums.map(formatTaskId).join(', ')
 
+function openBlockers(t: Graph['tasks'][number], graph: Graph): number[] {
+  return t.blockedBy.filter((n) => {
+    const state = graph.tasks.find((x) => x.num === n)?.state
+    return state !== 'done' && state !== 'cancelled'
+  })
+}
+
 function describeBranch(b: GraphBranch, graph: Graph): string {
   const root = b.rootTaskNum === null ? 'top-level' : `from ${formatTaskId(b.rootTaskNum)}`
   const flags = [b.stuck ? 'stuck' : '', b.finished ? 'finished' : ''].filter(Boolean)
@@ -26,7 +35,8 @@ function describeBranch(b: GraphBranch, graph: Graph): string {
   const head = `${b.name} (id ${b.id}, ${root})${purpose}${flags.length ? ` [${flags.join(', ')}]` : ''}`
   const tasks = b.taskNums.map((n) => graph.tasks.find((t) => t.num === n)!)
   const lines = tasks.map((t) => {
-    const blocked = t.blockedBy.length ? ` (blocked by ${list(t.blockedBy)})` : ''
+    const open = t.blocked ? openBlockers(t, graph) : []
+    const blocked = open.length ? ` (blocked by ${list(open)})` : ''
     return `  ${formatTaskId(t.num)} [${t.state}] ${t.title}${blocked}${t.flagged ? ' (flagged)' : ''}`
   })
   return [head, ...lines].join('\n')
@@ -129,8 +139,10 @@ export function registerTools(server: McpServer, api: ApiClient): void {
     (a) =>
       run(() =>
         withProject(a.project, async (pid) => {
+          const wasFlagged = (await api.getTask(pid, a.task)).flagged
           const r = await api.resumeTask(pid, a.task)
-          return `${taskText(r.task)}\n\nSummary\n${r.summary}`
+          const note = wasFlagged ? `\n\n${FLAG_NOTE}` : ''
+          return `${taskText(r.task)}${note}\n\nSummary\n${r.summary}`
         }),
       ),
   )
@@ -350,6 +362,35 @@ export function registerTools(server: McpServer, api: ApiClient): void {
     'get_summary',
     { description: 'Read the live project summary.', inputSchema: { project } },
     (a) => run(() => withProject(a.project, async (pid) => (await api.getSummary(pid)).body || '(empty)')),
+  )
+
+  server.registerTool(
+    'list_summary_versions',
+    { description: 'List the versions of the project summary, newest first.', inputSchema: { project } },
+    (a) =>
+      run(() =>
+        withProject(a.project, async (pid) =>
+          (await api.listSummaryVersions(pid))
+            .map((v) => (v.frozenAt ? `v${v.version} (frozen ${v.frozenAt.slice(0, 10)})` : `v${v.version} (live)`))
+            .join('\n'),
+        ),
+      ),
+  )
+
+  server.registerTool(
+    'get_summary_version',
+    {
+      description: 'Read one version of the project summary, including frozen older ones.',
+      inputSchema: { project, version: z.number().int().describe('Version number, e.g. 2') },
+    },
+    (a) =>
+      run(() =>
+        withProject(a.project, async (pid) => {
+          const v = (await api.listSummaryVersions(pid)).find((x) => x.version === a.version)
+          if (!v) throw new Error(`Summary v${a.version} not found`)
+          return v.body || '(empty)'
+        }),
+      ),
   )
 
   server.registerTool(

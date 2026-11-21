@@ -8,6 +8,8 @@ When the user says "Resume T-n", call \`resume_task\`. If the task is blocked, s
 
 When the user says "Take notes", rewrite the summary with \`update_summary\` so it describes the project as it stands now. Shrink finished work to its outcome. Before shrinking, move the detail into that task's details with \`update_task\`. Keep only what would matter to the next task someone picks up. If the user stopped mid-task, add a "Where I stopped" section to that task's details.
 
+Use \`list_summary_versions\` and \`get_summary_version\` to open an old version only if the user asks or a task clearly needs something that was condensed away.
+
 Never call \`create_checkpoint\` unless the user asks for one. If the user asks you to decide whether a checkpoint is due, give your call and wait for a yes.
 
 Don't list open tasks in chat. The user watches the web app.`

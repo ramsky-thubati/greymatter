@@ -4,8 +4,9 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { beforeEach, describe, expect, test } from 'vitest'
 import { addBlocker } from '../../src/core/blockers.js'
 import { type Db, openDb } from '../../src/core/db.js'
-import { createBranch, createTask } from '../../src/core/tasks.js'
+import { createBranch, createTask, updateTask } from '../../src/core/tasks.js'
 import { createProject } from '../../src/core/projects.js'
+import { createCheckpoint, updateLiveSummary } from '../../src/core/summary.js'
 import { createApiClient } from '../../src/mcp/api-client.js'
 import { INSTRUCTIONS } from '../../src/mcp/instructions.js'
 import { registerTools } from '../../src/mcp/tools.js'
@@ -135,4 +136,61 @@ test('resume_task success text shape', async () => {
 test('mutations confirm in one line', async () => {
   const r = await call('update_task', { project: 'Engine build', task: 'T-1', state: 'done' })
   expect(text(r)).toBe('T-1 → done')
+})
+
+test('get_graph shows only open blockers', async () => {
+  createTask(db, pid, { branchId: mainBranchId(db, pid), title: 'third' })
+  addBlocker(db, pid, 3, 1)
+  addBlocker(db, pid, 3, 2)
+  updateTask(db, pid, 1, { state: 'done' })
+  const out = text(await call('get_graph', { project: 'Engine build' }))
+  expect(out).toContain('T-3 [todo] third (blocked by T-2)')
+  expect(out).not.toMatch(/blocked by T-1/)
+  expect(out).not.toMatch(/T-2 \[todo\] second \(blocked/)
+})
+
+test('get_graph hides a cancelled blocker', async () => {
+  updateTask(db, pid, 1, { state: 'cancelled' })
+  const out = text(await call('get_graph', { project: 'Engine build' }))
+  expect(out).toContain('T-2 [todo] second (flagged)')
+  expect(out).not.toContain('blocked by')
+})
+
+describe('summary versions', () => {
+  beforeEach(() => {
+    updateLiveSummary(db, pid, 'first body')
+    createCheckpoint(db, pid)
+    updateLiveSummary(db, pid, 'second body')
+  })
+
+  test('list_summary_versions marks live and shows frozen dates', async () => {
+    const out = text(await call('list_summary_versions', { project: 'Engine build' }))
+    expect(out).toMatch(/^v2 \(live\)$/m)
+    expect(out).toMatch(/^v1 \(frozen \d{4}-\d{2}-\d{2}/m)
+  })
+
+  test('get_summary_version returns the body, unknown version is an error', async () => {
+    expect(text(await call('get_summary_version', { project: 'Engine build', version: 1 }))).toBe('first body')
+    const r = await call('get_summary_version', { project: 'Engine build', version: 9 })
+    expect(r.isError).toBe(true)
+    expect(text(r)).toBe('Summary v9 not found')
+  })
+
+  test('instructions mention both tools', () => {
+    expect(INSTRUCTIONS).toContain('list_summary_versions')
+    expect(INSTRUCTIONS).toContain('get_summary_version')
+  })
+})
+
+test('resume_task tells Claude when a cancelled blocker flagged the task', async () => {
+  updateTask(db, pid, 1, { state: 'cancelled' })
+  const r = await call('resume_task', { project: 'Engine build', task: 'T-2' })
+  expect(r.isError).toBeFalsy()
+  expect(text(r)).toContain('Note: a task this waited on was cancelled. Check it still makes sense.')
+  const again = await call('resume_task', { project: 'Engine build', task: 'T-2' })
+  expect(text(again)).not.toContain('Note: a task this waited on was cancelled')
+})
+
+test('resume_task has no note when not flagged', async () => {
+  expect(text(await call('resume_task', { project: 'Engine build', task: 'T-1' }))).not.toContain('Note:')
 })
