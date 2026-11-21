@@ -525,3 +525,70 @@ ul.boxed {
   max-height: 20rem;
   overflow-y: auto;
 }
+
+.summary {
+  width: min(52rem, calc(100vw - 2rem));
+  margin: 0 auto;
+  padding: 1.5rem 0 3rem;
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 3.5rem);
+}
+.summary-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+.summary-head h2 {
+  font-size: var(--t-lg);
+  margin: 0;
+}
+.summary-actions {
+  display: flex;
+  gap: 0.25rem;
+}
+.summary-text {
+  flex: 1;
+  min-height: 24rem;
+  font-family: ui-monospace, 'Ubuntu Sans Mono', monospace;
+  font-size: var(--t-base);
+  line-height: 1.5;
+  color: inherit;
+  background: var(--card);
+  border: 0;
+  border-radius: var(--r-md);
+  box-shadow: var(--shade);
+  padding: 1rem 1.1rem;
+  resize: vertical;
+  outline: 0;
+}
+.summary-text:focus-visible {
+  box-shadow: var(--shade), 0 0 0 0.15rem var(--accent);
+}
+.summary-foot {
+  display: flex;
+  justify-content: flex-end;
+  margin: 0.75rem 0 2rem;
+}
+.version-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  padding: 0.25rem 0;
+}
+.version + .version {
+  border-top: var(--hair) solid var(--border);
+}
+.version .row {
+  border-top: 0;
+}
+.version-body {
+  margin: 0;
+  padding: 0 1rem 1rem 2.4rem;
+  white-space: pre-wrap;
+  font-family: ui-monospace, 'Ubuntu Sans Mono', monospace;
+  font-size: var(--t-sm);
+  color: var(--dim);
+}

@@ -1,51 +1,48 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api, type SummaryVersion } from './api.js'
 import { errorText } from './errors.js'
-
-const NOTICE = 'Claude updated the summary. Reload to see it.'
-const OVERWRITE = 'Claude changed the summary since you started editing. Overwrite?'
+import { ConfirmAlert } from './ui/ConfirmAlert.js'
+import { ChevronDownIcon, ChevronRightIcon } from './ui/icons.js'
+import { useToast } from './ui/Toast.js'
 
 export function SummaryTab({ projectId, onDirtyChange }: { projectId: number; onDirtyChange?: (dirty: boolean) => void }) {
   const [version, setVersion] = useState<number | null>(null)
   const [saved, setSaved] = useState('')
   const [text, setText] = useState('')
   const [versions, setVersions] = useState<SummaryVersion[]>([])
-  const [stale, setStale] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [asking, setAsking] = useState(false)
+  const [open, setOpen] = useState<Set<number>>(new Set())
+  const toast = useToast()
   const latest = useRef(0)
   const dirty = useRef(false)
-  const savedRef = useRef('')
 
   const dirtyNow = text !== saved
   dirty.current = dirtyNow
-  savedRef.current = saved
 
   useEffect(() => {
     onDirtyChange?.(dirtyNow)
   }, [dirtyNow, onDirtyChange])
   useEffect(() => () => onDirtyChange?.(false), [onDirtyChange])
 
-  const load = useCallback((explicit: boolean) => {
-    const ticket = ++latest.current
-    Promise.all([api.getSummary(projectId), api.listSummaryVersions(projectId)])
-      .then(([live, all]) => {
-        if (ticket !== latest.current) return
-        setVersions(all)
-        setError(null)
-        if (!explicit && dirty.current) {
-          if (live.body !== savedRef.current) setStale(true)
-          return
-        }
-        setVersion(live.version)
-        setSaved(live.body)
-        setText(live.body)
-        setStale(false)
-      })
-      .catch((e) => {
-        if (ticket === latest.current) setError(errorText(e))
-      })
-  }, [projectId])
+  const load = useCallback(
+    (explicit: boolean) => {
+      const ticket = ++latest.current
+      Promise.all([api.getSummary(projectId), api.listSummaryVersions(projectId)])
+        .then(([live, all]) => {
+          if (ticket !== latest.current) return
+          setVersions(all)
+          if (!explicit && dirty.current) return
+          setVersion(live.version)
+          setSaved(live.body)
+          setText(live.body)
+        })
+        .catch((e) => {
+          if (ticket === latest.current) toast.error(errorText(e), explicit ? () => load(true) : undefined)
+        })
+    },
+    [projectId, toast],
+  )
 
   useEffect(() => {
     latest.current++
@@ -53,8 +50,7 @@ export function SummaryTab({ projectId, onDirtyChange }: { projectId: number; on
     setSaved('')
     setText('')
     setVersions([])
-    setStale(false)
-    setError(null)
+    setOpen(new Set())
     load(true)
     const source = new EventSource(`/api/projects/${projectId}/events`)
     source.addEventListener('changed', () => load(false))
@@ -70,35 +66,37 @@ export function SummaryTab({ projectId, onDirtyChange }: { projectId: number; on
   }, [projectId, load])
 
   const save = async () => {
-    const wasStale = stale
-    if (wasStale && !window.confirm(OVERWRITE)) return
     setBusy(true)
-    setError(null)
     try {
       await api.updateSummary(projectId, text)
       setSaved(text)
-      if (wasStale) setStale(false)
     } catch (e) {
-      setError(errorText(e))
+      toast.error(errorText(e))
     } finally {
       setBusy(false)
     }
   }
 
   const checkpoint = async () => {
-    if (version === null || !window.confirm(`Freeze v${version} and start v${version + 1} as a copy?`)) return
-    setError(null)
+    setAsking(false)
     try {
       await api.createCheckpoint(projectId)
       load(true)
     } catch (e) {
-      setError(errorText(e))
+      toast.error(errorText(e))
     }
   }
 
   const copy = (body: string) => {
-    navigator.clipboard.writeText(body).catch((e) => setError(errorText(e)))
+    navigator.clipboard.writeText(body).catch((e) => toast.error(errorText(e)))
   }
+
+  const toggle = (v: number) =>
+    setOpen((cur) => {
+      const next = new Set(cur)
+      if (!next.delete(v)) next.add(v)
+      return next
+    })
 
   const older = versions.filter((v) => v.frozenAt)
 
@@ -107,32 +105,20 @@ export function SummaryTab({ projectId, onDirtyChange }: { projectId: number; on
       <div className="summary-head">
         <h2>{version === null ? 'Summary' : `Summary v${version}`}</h2>
         <div className="summary-actions">
-          <button onClick={save} disabled={version === null || !dirtyNow || busy}>
-            Save
-          </button>
-          <button onClick={() => copy(text)} disabled={version === null}>
+          <button type="button" className="btn flat" onClick={() => copy(text)} disabled={version === null}>
             Copy
           </button>
           <button
-            onClick={checkpoint}
+            type="button"
+            className="btn flat"
+            onClick={() => setAsking(true)}
             disabled={version === null || dirtyNow}
-            title={dirtyNow ? 'Save or reload first' : undefined}
+            title={dirtyNow ? 'Save first' : undefined}
           >
             Checkpoint
           </button>
         </div>
       </div>
-      {stale && (
-        <p className="summary-notice">
-          {NOTICE} <button onClick={() => load(true)}>Reload</button>
-        </p>
-      )}
-      {error && (
-        <p className="summary-error" role="alert">
-          {error}
-          {version === null && <button onClick={() => load(true)}>Retry</button>}
-        </p>
-      )}
       <textarea
         className="summary-text"
         aria-label="Summary"
@@ -141,21 +127,52 @@ export function SummaryTab({ projectId, onDirtyChange }: { projectId: number; on
         onChange={(e) => setText(e.target.value)}
         spellCheck={false}
       />
+      <div className="summary-foot">
+        <button
+          type="button"
+          className="btn suggested"
+          onClick={() => void save()}
+          disabled={version === null || !dirtyNow || busy}
+        >
+          Save
+        </button>
+      </div>
       {older.length > 0 && (
-        <>
-          <h3>Older versions</h3>
-          <ul className="summary-versions">
-            {older.map((v) => (
-              <li key={v.version}>
-                <div className="summary-head">
-                  <strong>v{v.version}</strong>
-                  <button onClick={() => copy(v.body)}>Copy</button>
-                </div>
-                <pre>{v.body}</pre>
-              </li>
-            ))}
+        <section>
+          <h3 className="group-title">Older versions</h3>
+          <ul className="boxed">
+            {older.map((v) => {
+              const expanded = open.has(v.version)
+              return (
+                <li key={v.version} className="version">
+                  <div className="row">
+                    <button
+                      type="button"
+                      className="row-btn version-toggle"
+                      aria-expanded={expanded}
+                      onClick={() => toggle(v.version)}
+                    >
+                      {expanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
+                      <span>v{v.version}</span>
+                    </button>
+                    <button type="button" className="btn flat" onClick={() => copy(v.body)}>
+                      Copy
+                    </button>
+                  </div>
+                  {expanded && <pre className="version-body">{v.body}</pre>}
+                </li>
+              )
+            })}
           </ul>
-        </>
+        </section>
+      )}
+      {asking && version !== null && (
+        <ConfirmAlert
+          title={`Freeze v${version} and start v${version + 1} as a copy?`}
+          confirmLabel="Checkpoint"
+          onConfirm={() => void checkpoint()}
+          onCancel={() => setAsking(false)}
+        />
       )}
     </div>
   )
