@@ -147,3 +147,13 @@ test('card opens the task dialog; + opens New task', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Add task to main' }))
   expect(screen.getByRole('heading', { name: 'New task' })).toBeTruthy()
 })
+
+test('lane label opens Branch; double-click opens New branch', async () => {
+  window.location.hash = '#/projects/1'
+  render(<App />)
+  fireEvent.click(await screen.findByRole('button', { name: 'main' }))
+  expect(screen.getByRole('heading', { name: 'Branch' })).toBeTruthy()
+  fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+  fireEvent.doubleClick(document.querySelector('.graph-wrap')!)
+  expect(screen.getByRole('heading', { name: 'New branch' })).toBeTruthy()
+})

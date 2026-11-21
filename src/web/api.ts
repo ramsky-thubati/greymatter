@@ -49,7 +49,7 @@ export const api = {
   updateBranch: (
     projectId: number,
     branchId: number,
-    body: { name?: string; purpose?: string; rootTask?: string | null },
+    body: { name?: string; purpose?: string; color?: string; rootTask?: string | null },
   ) => request<Branch>('PATCH', `${p(projectId)}/branches/${branchId}`, body),
   deleteBranch: (projectId: number, branchId: number, opts?: { confirm?: boolean }) =>
     request<void>('DELETE', `${p(projectId)}/branches/${branchId}${confirmQuery(opts)}`),
