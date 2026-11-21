@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import {
   ADD_GAP,
+  ADD_R,
   CARD_H,
   CARD_W,
   CP_PILL_H,
@@ -278,6 +279,30 @@ describe('curved checkpoint lines', () => {
     )
     const [a, b] = computeLayout(g).checkpoints
     expect(b!.labelX - a!.labelX).toBeGreaterThanOrEqual((cpPillWidth(a!.label) + cpPillWidth(b!.label)) / 2)
+  })
+
+  test('add button sits right of every line', () => {
+    const g = makeGraph(
+      [
+        { id: 1, name: 'main' },
+        { id: 2, name: 'Lighting', root: 1 },
+      ],
+      [
+        { num: 1, branchId: 1, seq: 1, state: 'done' },
+        { num: 2, branchId: 2, seq: 2, state: 'done' },
+      ],
+      [cp(3), { seq: 4, fromVersion: 2, toVersion: 3 }, { seq: 5, fromVersion: 3, toVersion: 4 }],
+    )
+    const L = computeLayout(g)
+    L.lanes.forEach((l, li) => {
+      for (const c of L.checkpoints) expect(l.addX - ADD_R).toBeGreaterThan(c.points[li]!.x)
+    })
+  })
+
+  test('first pill stays inside the graph', () => {
+    const g = makeGraph([{ id: 1, name: 'main' }], [{ num: 1, branchId: 1, seq: 2 }], [cp(1)])
+    const [c] = computeLayout(g).checkpoints
+    expect(c!.labelX - cpPillWidth(c!.label) / 2).toBeGreaterThanOrEqual(0)
   })
 
   test('line misses a label pill it passes', () => {

@@ -5,7 +5,7 @@ import { api } from '../api.js'
 import { taskLabel } from '../blockers.js'
 import { errorText } from '../errors.js'
 import type { DeleteTarget } from '../impact.js'
-import { CARD_H, CP_PILL_H, checkpointPath, computeLayout, cpPillWidth, forkPath } from '../layout.js'
+import { ADD_R, CARD_H, CP_PILL_H, checkpointPath, computeLayout, cpPillWidth, forkPath } from '../layout.js'
 import { PlusIcon } from '../ui/icons.js'
 import { useToast } from '../ui/Toast.js'
 import { BlockerPopover } from './BlockerPopover.js'
@@ -28,7 +28,6 @@ export interface GraphViewProps {
 }
 
 const LINE = 0.3
-const ADD_R = 1
 
 export function GraphView(props: GraphViewProps) {
   const { graph } = props

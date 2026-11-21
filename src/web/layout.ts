@@ -8,6 +8,7 @@ export const TOP = 4.25
 export const CP_PILL_H = 1.4
 export const LABEL_GAP = 1.25
 export const ADD_GAP = 3
+export const ADD_R = 1
 export const STUCK_W = 3.6
 const LEFT = 0.5
 const FORK_GAP = 1.5
@@ -77,7 +78,7 @@ export function computeLayout(graph: Graph): Layout {
     let floor = -Infinity
     let k = 0
     const placeLine = () => {
-      let x = prev !== undefined ? prev + CARD_W + GAP : li > 0 ? lineX[k]![li - 1]! : LEFT
+      let x = prev !== undefined ? prev + CARD_W + GAP : li > 0 ? lineX[k]![li - 1]! : Math.max(LEFT, pillW[k]! / 2)
       if (k > 0) x = Math.max(x, lineX[k - 1]![li]! + (li === 0 ? (pillW[k - 1]! + pillW[k]!) / 2 + PILL_GAP : GAP))
       lineX[k]![li] = x
       if (prev === undefined && x >= labelX) labelX = x + GAP
@@ -94,6 +95,7 @@ export function computeLayout(graph: Graph): Layout {
     }
     while (k < cps.length) placeLine()
     const last = prev
+    const lastLine = cps.length > 0 ? lineX[cps.length - 1]![li]! + GAP + ADD_R : -Infinity
     return {
       branchId: id,
       y,
@@ -102,7 +104,7 @@ export function computeLayout(graph: Graph): Layout {
       labelX,
       labelW: labelWidth(b.name),
       lineEndX: last !== undefined ? last + CARD_W / 2 : labelX + room,
-      addX: last !== undefined ? last + CARD_W + ADD_GAP : labelX + room + ADD_GAP,
+      addX: Math.max(last !== undefined ? last + CARD_W + ADD_GAP : labelX + room + ADD_GAP, lastLine),
     }
   })
 
