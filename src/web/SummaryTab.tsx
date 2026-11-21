@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api, type SummaryVersion } from './api.js'
-import { errorText } from './Popup.js'
+import { errorText } from './errors.js'
 
 const NOTICE = 'Claude updated the summary. Reload to see it.'
 const OVERWRITE = 'Claude changed the summary since you started editing. Overwrite?'

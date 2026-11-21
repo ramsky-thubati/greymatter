@@ -378,3 +378,25 @@
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+.app > .headerbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.content {
+  flex: 1;
+  background: var(--view);
+}
+.home {
+  width: min(40rem, calc(100vw - 2rem));
+  margin: 2rem auto;
+}
+.home .row-btn svg {
+  color: var(--dim);
+}
