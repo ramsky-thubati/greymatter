@@ -1,6 +1,6 @@
 import { type Db, tx } from './db.js'
+import { checkpointOrder } from './ordering.js'
 import { getProject } from './projects.js'
-import { nextSeq } from './sequence.js'
 
 export type SummaryVersion = { version: number; body: string }
 export type SummaryVersionRow = SummaryVersion & { frozenAt: string | null }
@@ -49,10 +49,35 @@ export function createCheckpoint(
       toVersion,
       live.body,
     )
-    const seq = nextSeq(db, projectId)
-    db.prepare(
-      'INSERT INTO checkpoints (project_id, seq, from_version, to_version, created_at) VALUES (?, ?, ?, ?, ?)',
-    ).run(projectId, seq, live.version, toVersion, now)
+    const { left, right } = checkpointOrder(db, projectId)
+    const moving = new Set([...left, ...right])
+    const settled = db
+      .prepare(
+        `SELECT 't' AS kind, num AS ref, seq FROM tasks WHERE project_id = ?1
+         UNION ALL SELECT 'c', rowid, seq FROM checkpoints WHERE project_id = ?1
+         ORDER BY seq, kind, ref`,
+      )
+      .all(projectId) as { kind: 't' | 'c'; ref: number }[]
+    const cp = Number(
+      db
+        .prepare(
+          'INSERT INTO checkpoints (project_id, seq, from_version, to_version, created_at) VALUES (?, 0, ?, ?, ?)',
+        )
+        .run(projectId, live.version, toVersion, now).lastInsertRowid,
+    )
+    const order = [
+      ...settled.filter((r) => r.kind === 'c' || !moving.has(r.ref)),
+      ...left.map((ref) => ({ kind: 't' as const, ref })),
+      { kind: 'c' as const, ref: cp },
+      ...right.map((ref) => ({ kind: 't' as const, ref })),
+    ]
+    const setTask = db.prepare('UPDATE tasks SET seq = ? WHERE project_id = ? AND num = ?')
+    const setCheckpoint = db.prepare('UPDATE checkpoints SET seq = ? WHERE rowid = ?')
+    order.forEach((r, i) => {
+      if (r.kind === 't') setTask.run(i + 1, projectId, r.ref)
+      else setCheckpoint.run(i + 1, r.ref)
+    })
+    const seq = order.findIndex((r) => r.kind === 'c' && r.ref === cp) + 1
     return { seq, fromVersion: live.version, toVersion }
   })
 }

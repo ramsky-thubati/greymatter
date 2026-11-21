@@ -411,7 +411,7 @@ export function registerTools(server: McpServer, api: ApiClient): void {
   server.registerTool(
     'create_checkpoint',
     {
-      description: 'Freeze the current summary as a checkpoint. Only when the user asks for one.',
+      description: 'Freeze the current summary as a checkpoint. Finished tasks move left of the new line. Only when the user asks for one.',
       inputSchema: { project },
     },
     (a) =>

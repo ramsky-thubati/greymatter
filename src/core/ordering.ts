@@ -150,3 +150,37 @@ export function moveTask(
     relinkBranch(db, projectId, task.branchId, nums.map((n) => ({ num: n })), [num])
   })
 }
+
+const FINISHED = new Set(['done', 'cancelled'])
+
+export function checkpointOrder(db: Db, projectId: number): { left: number[]; right: number[] } {
+  const last =
+    (db.prepare('SELECT MAX(seq) AS m FROM checkpoints WHERE project_id = ?').get(projectId) as { m: number | null })
+      .m ?? 0
+  const rows = db
+    .prepare(
+      `SELECT t.num, t.state, b.root_task_num AS root,
+         (SELECT p.num FROM tasks p WHERE p.branch_id = t.branch_id AND p.branch_pos < t.branch_pos
+          ORDER BY p.branch_pos DESC LIMIT 1) AS prev
+       FROM tasks t JOIN branches b ON b.id = t.branch_id
+       WHERE t.project_id = ? AND t.seq > ? ORDER BY t.seq`,
+    )
+    .all(projectId, last) as { num: number; state: string; root: number | null; prev: number | null }[]
+  const byNum = new Map(rows.map((r) => [r.num, r]))
+  const memo = new Map<number, boolean>()
+  const goesLeft = (num: number | null): boolean => {
+    if (num === null) return true
+    const row = byNum.get(num)
+    if (!row) return true
+    const known = memo.get(num)
+    if (known !== undefined) return known
+    memo.set(num, false)
+    const ok = FINISHED.has(row.state) && goesLeft(row.prev) && goesLeft(row.root)
+    memo.set(num, ok)
+    return ok
+  }
+  const left: number[] = []
+  const right: number[] = []
+  for (const r of rows) (goesLeft(r.num) ? left : right).push(r.num)
+  return { left, right }
+}
