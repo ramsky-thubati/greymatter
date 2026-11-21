@@ -1,8 +1,11 @@
-import { useEffect, useState } from 'react'
-import type { GraphBranch } from '../core/graph.js'
+import { useCallback, useEffect, useState } from 'react'
+import type { Graph } from '../core/graph.js'
 import type { Project } from '../core/types.js'
 import { api } from './api.js'
+import { BranchPopup } from './BranchPopup.js'
+import { CreateBranchPopup, CreateProjectPopup, CreateTaskPopup } from './CreatePopups.js'
 import { MetroMap } from './MetroMap.js'
+import { TaskPopup } from './TaskPopup.js'
 import { useGraph } from './useGraph.js'
 
 const STORAGE_KEY = 'greymatter.project'
@@ -23,6 +26,8 @@ function remember(id: number | null) {
   } catch {}
 }
 
+const graphTask = (graph: Graph, num: number) => graph.tasks.find((t) => t.num === num)
+
 export interface MapActions {
   onTaskClick(num: number): void
   onBranchClick(branchId: number): void
@@ -30,12 +35,22 @@ export interface MapActions {
   onAddTask(): void
 }
 
+type PopupState =
+  | { kind: 'task'; num: number }
+  | { kind: 'branch'; id: number }
+  | { kind: 'createTask' }
+  | { kind: 'createBranch'; fromTask?: number }
+  | { kind: 'createProject' }
+
 export function App() {
   const [projects, setProjects] = useState<Project[] | null>(null)
   const [projectId, setProjectId] = useState<number | null>(savedProject)
   const [tab, setTab] = useState<'graph' | 'summary'>('graph')
   const [error, setError] = useState<string | null>(null)
-  const { graph, reload } = useGraph(projectId)
+  const [popup, setPopup] = useState<PopupState | null>(null)
+  const [lastBranchId, setLastBranchId] = useState<number | null>(null)
+  const [, setEditingBranchId] = useState<number | null>(null)
+  const { graph } = useGraph(projectId)
 
   const report = (e: unknown) => setError(e instanceof Error ? e.message : String(e))
 
@@ -51,58 +66,26 @@ export function App() {
 
   useEffect(() => remember(projectId), [projectId])
 
-  const createProject = async () => {
-    const name = window.prompt('Project name')?.trim()
-    if (!name) return
-    try {
-      const p = await api.createProject(name)
-      setProjects((list) => [...(list ?? []), p])
-      setProjectId(p.id)
-    } catch (e) {
-      report(e)
-    }
-  }
-
-  const addBranch = async () => {
-    if (projectId === null) return
-    const name = window.prompt('Branch name')?.trim()
-    if (!name) return
-    try {
-      await api.createBranch(projectId, { name })
-      reload()
-    } catch (e) {
-      report(e)
-    }
-  }
-
-  const addTask = async () => {
-    if (projectId === null || !graph) return
-    const title = window.prompt('Task title')?.trim()
-    if (!title) return
-    let branch: GraphBranch | undefined = graph.branches[0]
-    if (graph.branches.length > 1) {
-      const wanted = window.prompt('Branch name', branch?.name)?.trim()
-      branch = graph.branches.find((b) => b.name === wanted)
-      if (!branch) return report(new Error(`No branch named "${wanted}"`))
-    }
-    if (!branch) return
-    try {
-      await api.createTask(projectId, { branchId: branch.id, title })
-      reload()
-    } catch (e) {
-      report(e)
-    }
-  }
+  const closePopup = useCallback(() => setPopup(null), [])
 
   const actions: MapActions = {
-    onTaskClick: () => {},
-    onBranchClick: () => {},
-    onAddBranch: addBranch,
-    onAddTask: addTask,
+    onTaskClick: (num) => {
+      const task = graph?.tasks.find((t) => t.num === num)
+      if (task) setLastBranchId(task.branchId)
+      setPopup({ kind: 'task', num })
+    },
+    onBranchClick: (id) => setPopup({ kind: 'branch', id }),
+    onAddBranch: () => setPopup({ kind: 'createBranch' }),
+    onAddTask: () => setPopup({ kind: 'createTask' }),
+  }
+
+  const startEditingLinks = (branchId: number) => {
+    setEditingBranchId(branchId)
+    setPopup(null)
   }
 
   const onSelect = (value: string) => {
-    if (value === NEW_PROJECT) void createProject()
+    if (value === NEW_PROJECT) setPopup({ kind: 'createProject' })
     else setProjectId(Number(value))
   }
 
@@ -127,7 +110,7 @@ export function App() {
           </button>
         </nav>
         <span className="spacer" />
-        <button onClick={actions.onAddBranch} disabled={projectId === null}>
+        <button onClick={actions.onAddBranch} disabled={!graph}>
           + Branch
         </button>
         <button onClick={actions.onAddTask} disabled={!graph}>
@@ -143,7 +126,7 @@ export function App() {
         {projects !== null && projects.length === 0 && (
           <div className="empty">
             <p>No projects yet.</p>
-            <button onClick={createProject}>Create your first project</button>
+            <button onClick={() => setPopup({ kind: 'createProject' })}>Create your first project</button>
           </div>
         )}
         {tab === 'graph' && graph && (
@@ -154,6 +137,39 @@ export function App() {
         )}
         {tab === 'summary' && graph && <div className="empty">Summary coming soon.</div>}
       </main>
+      {projectId !== null && graph && popup?.kind === 'task' && graphTask(graph, popup.num) && (
+        <TaskPopup
+          projectId={projectId}
+          task={graphTask(graph, popup.num)!}
+          graph={graph}
+          onClose={closePopup}
+          onBranchFrom={(num) => setPopup({ kind: 'createBranch', fromTask: num })}
+        />
+      )}
+      {projectId !== null && graph && popup?.kind === 'branch' && graph.branches.find((b) => b.id === popup.id) && (
+        <BranchPopup
+          projectId={projectId}
+          branch={graph.branches.find((b) => b.id === popup.id)!}
+          graph={graph}
+          onClose={closePopup}
+          onEditLinks={startEditingLinks}
+        />
+      )}
+      {projectId !== null && graph && popup?.kind === 'createTask' && (
+        <CreateTaskPopup projectId={projectId} graph={graph} defaultBranchId={lastBranchId} onClose={closePopup} />
+      )}
+      {projectId !== null && graph && popup?.kind === 'createBranch' && (
+        <CreateBranchPopup projectId={projectId} graph={graph} fromTask={popup.fromTask} onClose={closePopup} />
+      )}
+      {popup?.kind === 'createProject' && (
+        <CreateProjectPopup
+          onCreated={(p) => {
+            setProjects((list) => [...(list ?? []), p])
+            setProjectId(p.id)
+          }}
+          onClose={closePopup}
+        />
+      )}
     </div>
   )
 }
