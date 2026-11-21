@@ -137,3 +137,13 @@ test('project list failure shows a toast', async () => {
   expect(await screen.findByText('server down')).toBeTruthy()
   expect(document.querySelector('.error')).toBeNull()
 })
+
+test('card opens the task dialog; + opens New task', async () => {
+  window.location.hash = '#/projects/1'
+  render(<App />)
+  fireEvent.click(await screen.findByText('Design schema'))
+  expect((screen.getByLabelText('Title') as HTMLInputElement).value).toBe('Design schema')
+  fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Add task to main' }))
+  expect(screen.getByRole('heading', { name: 'New task' })).toBeTruthy()
+})

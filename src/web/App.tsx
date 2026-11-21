@@ -3,6 +3,8 @@ import type { Project } from '../core/types.js'
 import { api } from './api.js'
 import { DeleteAlert } from './dialogs/DeleteAlert.js'
 import { NewProjectDialog } from './dialogs/NewProjectDialog.js'
+import { NewTaskDialog } from './dialogs/NewTaskDialog.js'
+import { TaskDialog } from './dialogs/TaskDialog.js'
 import type { DeleteTarget } from './impact.js'
 import { errorText } from './errors.js'
 import { GraphView } from './graph/GraphView.js'
@@ -14,7 +16,6 @@ import { ConfirmAlert } from './ui/ConfirmAlert.js'
 import { ChevronLeftIcon } from './ui/icons.js'
 import { ToastProvider, useToast } from './ui/Toast.js'
 import { useGraph } from './useGraph.js'
-
 
 const leavesSummary = (from: Route, to: Route) =>
   from.name === 'project' &&
@@ -35,6 +36,9 @@ function Shell() {
   const [newProject, setNewProject] = useState(false)
   const [pending, setPending] = useState<Route | null>(null)
   const [deleting, setDeleting] = useState<DeleteTarget | null>(null)
+  const [openTask, setOpenTask] = useState<number | null>(null)
+  const [addTo, setAddTo] = useState<number | null>(null)
+  const closeTask = useCallback(() => setOpenTask(null), [])
   const summaryDirty = useRef(false)
 
   const canLeave = useCallback((from: Route, to: Route) => {
@@ -45,6 +49,12 @@ function Shell() {
   const [route, navigate] = useRoute(canLeave)
   const projectId = route.name === 'project' ? route.projectId : null
   const { graph } = useGraph(projectId)
+
+  useEffect(() => {
+    setOpenTask(null)
+    setAddTo(null)
+    setDeleting(null)
+  }, [projectId])
 
   const onDirtyChange = useCallback((dirty: boolean) => {
     summaryDirty.current = dirty
@@ -110,14 +120,27 @@ function Shell() {
               <GraphView
                 projectId={route.projectId}
                 graph={graph}
-                onOpenTask={() => {}}
+                onOpenTask={setOpenTask}
                 onOpenBranch={() => {}}
-                onAddTask={() => {}}
+                onAddTask={setAddTo}
                 onNewBranch={() => {}}
                 onDelete={setDeleting}
               />
             )}
-            {graph && deleting && route.name === 'project' && (
+            {graph && openTask !== null && (
+              <TaskDialog
+                key={openTask}
+                projectId={route.projectId}
+                graph={graph}
+                num={openTask}
+                onClose={closeTask}
+                onDelete={setDeleting}
+              />
+            )}
+            {addTo !== null && (
+              <NewTaskDialog projectId={route.projectId} branchId={addTo} onClose={() => setAddTo(null)} />
+            )}
+            {graph && deleting && (
               <DeleteAlert
                 projectId={route.projectId}
                 graph={graph}

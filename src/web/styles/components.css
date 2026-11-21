@@ -400,3 +400,39 @@
 .home .row-btn svg {
   color: var(--dim);
 }
+
+ul.boxed {
+  list-style: none;
+  margin: 0 0 1.25rem;
+  padding: 0;
+}
+.dlg-body > .boxed + .group-title {
+  margin-top: 1.25rem;
+}
+.row.add .row-btn {
+  color: inherit;
+  font-weight: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.row.add .row-btn:disabled {
+  color: var(--dim);
+  cursor: default;
+}
+.grow {
+  flex: 1;
+  min-width: 0;
+}
+.dim-id {
+  color: var(--dim);
+  font-size: var(--t-sm);
+  font-variant-numeric: tabular-nums;
+}
+.warn-note {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--s-later);
+  margin: 0 0 1rem;
+}
