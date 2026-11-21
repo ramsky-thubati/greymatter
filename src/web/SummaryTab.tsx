@@ -28,15 +28,19 @@ export function SummaryTab({ projectId }: { projectId: number }) {
       .catch(() => {})
   }, [projectId])
 
-  const load = useCallback(() => {
+  const load = useCallback((explicit: boolean) => {
     const ticket = ++latest.current
     Promise.all([api.getSummary(projectId), api.listSummaryVersions(projectId)])
       .then(([live, all]) => {
         if (ticket !== latest.current) return
+        setVersions(all)
+        if (!explicit && dirty.current) {
+          setStale(true)
+          return
+        }
         setVersion(live.version)
         setSaved(live.body)
         setText(live.body)
-        setVersions(all)
         setStale(false)
       })
       .catch((e) => {
@@ -52,14 +56,14 @@ export function SummaryTab({ projectId }: { projectId: number }) {
     setVersions([])
     setStale(false)
     setError(null)
-    load()
+    load(true)
     const source = new EventSource(`/api/projects/${projectId}/events`)
     source.addEventListener('changed', () => {
       if (dirty.current) {
         setStale(true)
         refreshVersions()
       } else {
-        load()
+        load(false)
       }
     })
     return () => {
@@ -87,7 +91,7 @@ export function SummaryTab({ projectId }: { projectId: number }) {
     setError(null)
     try {
       await api.createCheckpoint(projectId)
-      load()
+      load(true)
     } catch (e) {
       setError(errorText(e))
     }
@@ -108,14 +112,18 @@ export function SummaryTab({ projectId }: { projectId: number }) {
             Save
           </button>
           <button onClick={() => copy(text)}>Copy</button>
-          <button onClick={checkpoint} disabled={version === null}>
+          <button
+            onClick={checkpoint}
+            disabled={version === null || dirtyNow}
+            title={dirtyNow ? 'Save or reload first' : undefined}
+          >
             Checkpoint
           </button>
         </div>
       </div>
       {stale && (
         <p className="summary-notice">
-          {NOTICE} <button onClick={load}>Reload</button>
+          {NOTICE} <button onClick={() => load(true)}>Reload</button>
         </p>
       )}
       {error && (

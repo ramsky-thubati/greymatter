@@ -140,3 +140,30 @@ test('switching project reloads and closes the old stream', async () => {
   expect(FakeSource.all[0]!.closed).toBe(true)
   expect(FakeSource.all[1]!.url).toBe('/api/projects/2/events')
 })
+
+test('checkpoint is disabled while there are unsaved edits and re-enabled after save', async () => {
+  vi.spyOn(api, 'updateSummary').mockResolvedValue(undefined as never)
+  render(<SummaryTab projectId={1} />)
+  const box = await textarea()
+  await waitFor(() => expect(box.value).toBe(md))
+  const cp = screen.getByRole('button', { name: 'Checkpoint' }) as HTMLButtonElement
+  expect(cp.disabled).toBe(false)
+  fireEvent.change(box, { target: { value: 'typed' } })
+  expect(cp.disabled).toBe(true)
+  expect(cp.title).toBe('Save or reload first')
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+  await waitFor(() => expect(cp.disabled).toBe(false))
+})
+
+test('text typed while a background reload is in flight is kept and the notice shows', async () => {
+  render(<SummaryTab projectId={1} />)
+  const box = await textarea()
+  await waitFor(() => expect(box.value).toBe(md))
+  let resolve!: (v: { version: number; body: string }) => void
+  vi.mocked(api.getSummary).mockReturnValue(new Promise((r) => (resolve = r)))
+  await act(async () => FakeSource.all[0]!.emit('changed'))
+  fireEvent.change(box, { target: { value: 'typed meanwhile' } })
+  await act(async () => resolve({ version: 1, body: 'from claude' }))
+  expect(box.value).toBe('typed meanwhile')
+  expect(await screen.findByText('Claude updated the summary. Reload to see it.')).toBeTruthy()
+})
