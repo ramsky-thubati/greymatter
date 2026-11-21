@@ -25,7 +25,13 @@
   "homepage": "https://github.com/ramsky-thubati/greymatter#readme",
   "devDependencies": {
     "@types/node": "^26.6.6",
+    "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vitest": "^5.1.1"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.1.11",
+    "hono": "^4.13.19",
+    "zod": "^4.6.7"
   }
 }
