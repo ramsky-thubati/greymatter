@@ -147,7 +147,10 @@ export function App() {
           </div>
         )}
         {tab === 'graph' && graph && (
-          <MetroMap graph={graph} onTaskClick={actions.onTaskClick} onBranchClick={actions.onBranchClick} />
+          <>
+            <MetroMap graph={graph} onTaskClick={actions.onTaskClick} onBranchClick={actions.onBranchClick} />
+            {graph.tasks.length === 0 && <div className="empty">No tasks yet. Add one with + Task.</div>}
+          </>
         )}
         {tab === 'summary' && graph && <div className="empty">Summary coming soon.</div>}
       </main>

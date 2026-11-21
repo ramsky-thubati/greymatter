@@ -1,28 +1,26 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Graph } from '../core/graph.js'
 import { api } from './api.js'
 
 export function useGraph(projectId: number | null): { graph: Graph | null; reload(): void } {
   const [graph, setGraph] = useState<Graph | null>(null)
+  const latest = useRef(0)
 
-  const reload = useCallback(() => {
+  const load = useCallback(() => {
     if (projectId === null) return
+    const ticket = ++latest.current
     api
       .getGraph(projectId)
-      .then(setGraph)
+      .then((g) => {
+        if (ticket === latest.current) setGraph(g)
+      })
       .catch(() => {})
   }, [projectId])
 
   useEffect(() => {
+    latest.current++
     setGraph(null)
     if (projectId === null) return
-    let live = true
-    const load = () => {
-      api
-        .getGraph(projectId)
-        .then((g) => live && setGraph(g))
-        .catch(() => {})
-    }
     load()
     const source = new EventSource(`/api/projects/${projectId}/events`)
     let opened = false
@@ -32,10 +30,10 @@ export function useGraph(projectId: number | null): { graph: Graph | null; reloa
       opened = true
     })
     return () => {
-      live = false
+      latest.current++
       source.close()
     }
-  }, [projectId])
+  }, [projectId, load])
 
-  return { graph, reload }
+  return { graph, reload: load }
 }
