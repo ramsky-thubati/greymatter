@@ -51,6 +51,12 @@ describe('graph', () => {
     expect(branch(getGraph(db, p.id), 'main')).toMatchObject({ finished: false })
   })
 
+  test('an empty branch is not finished', () => {
+    const fresh = createProject(db, 'B')
+    const g = getGraph(db, fresh.id)
+    expect(branch(g, 'main')).toMatchObject({ finished: false, nextTaskNum: null, stuck: false })
+  })
+
   test('branches by creation, tasks by seq, checkpoints and live version', () => {
     addCheckpoint(db, p.id, 4)
     db.prepare('UPDATE summary_versions SET frozen_at = ? WHERE project_id=? AND version=1').run('x', p.id)

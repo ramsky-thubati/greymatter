@@ -82,7 +82,7 @@ export function getGraph(db: Db, projectId: number): Graph {
       taskNums: own.map((t) => t.num),
       nextTaskNum: next?.num ?? null,
       stuck: next?.blocked ?? false,
-      finished: own.every((t) => t.state === 'done' || t.state === 'cancelled'),
+      finished: own.length > 0 && own.every((t) => t.state === 'done' || t.state === 'cancelled'),
     }
   })
 
