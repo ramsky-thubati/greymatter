@@ -53,7 +53,7 @@ export const api = {
   ) => request<Branch>('PATCH', `${p(projectId)}/branches/${branchId}`, body),
   deleteBranch: (projectId: number, branchId: number, opts?: { confirm?: boolean }) =>
     request<void>('DELETE', `${p(projectId)}/branches/${branchId}${confirmQuery(opts)}`),
-  reorderBranch: (projectId: number, branchId: number, order: ({ task: string } | { title: string })[]) =>
+  setBranchOrder: (projectId: number, branchId: number, order: ({ task: number | string } | { title: string })[]) =>
     request<Task[]>('PUT', `${p(projectId)}/branches/${branchId}/order`, { order }),
 
   createTask: (

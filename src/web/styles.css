@@ -141,3 +141,34 @@ button.danger {
   color: #e03131;
   border-color: #e03131;
 }
+
+.link-editor .piece {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.link-editor .chips {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.link-editor .chip-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.link-editor .chip {
+  padding: 2px 8px;
+  border: 1px solid currentColor;
+  border-radius: 12px;
+}
+.link-editor .chip-new {
+  border-style: dashed;
+}
+.link-editor .new-task {
+  display: flex;
+  gap: 8px;
+}

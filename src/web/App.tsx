@@ -4,6 +4,7 @@ import type { Project } from '../core/types.js'
 import { api } from './api.js'
 import { BranchPopup } from './BranchPopup.js'
 import { CreateBranchPopup, CreateProjectPopup, CreateTaskPopup } from './CreatePopups.js'
+import { LinkEditor } from './LinkEditor.js'
 import { MetroMap } from './MetroMap.js'
 import { TaskPopup } from './TaskPopup.js'
 import { useGraph } from './useGraph.js'
@@ -49,8 +50,10 @@ export function App() {
   const [error, setError] = useState<string | null>(null)
   const [popup, setPopup] = useState<PopupState | null>(null)
   const [lastBranchId, setLastBranchId] = useState<number | null>(null)
-  const [, setEditingBranchId] = useState<number | null>(null)
+  const [editingBranchId, setEditingBranchId] = useState<number | null>(null)
   const { graph } = useGraph(projectId)
+
+  const editingBranch = graph?.branches.find((b) => b.id === editingBranchId)
 
   const report = (e: unknown) => setError(e instanceof Error ? e.message : String(e))
 
@@ -160,6 +163,15 @@ export function App() {
       )}
       {projectId !== null && graph && popup?.kind === 'createBranch' && (
         <CreateBranchPopup projectId={projectId} graph={graph} fromTask={popup.fromTask} onClose={closePopup} />
+      )}
+      {projectId !== null && graph && editingBranch && (
+        <LinkEditor
+          key={editingBranch.id}
+          projectId={projectId}
+          branch={editingBranch}
+          graph={graph}
+          onClose={() => setEditingBranchId(null)}
+        />
       )}
       {popup?.kind === 'createProject' && (
         <CreateProjectPopup
