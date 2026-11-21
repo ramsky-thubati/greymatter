@@ -7,6 +7,7 @@ import {
   LANE_H,
   labelWidth,
   type Layout,
+  STUCK_W,
   TOP,
 } from '../../src/web/layout.js'
 import { makeGraph } from './fixtures.js'
@@ -154,8 +155,10 @@ describe('computeLayout', () => {
     expect(L.height).toBe(TOP + 3 * LANE_H)
   })
 
-  test('stuck flag carries through', () => {
-    const g = makeGraph([{ id: 1, name: 'main', stuck: true }], [])
-    expect(computeLayout(g).lanes[0]!.stuck).toBe(true)
+  test('stuck flag carries through and leaves room for its pill', () => {
+    const g = makeGraph([{ id: 1, name: 'main', stuck: true }], [{ num: 1, branchId: 1, seq: 1 }])
+    const L = computeLayout(g)
+    expect(L.lanes[0]!.stuck).toBe(true)
+    expect(L.lanes[0]!.labelX + labelWidth('main') + STUCK_W + LABEL_GAP).toBeLessThanOrEqual(card(L, 1).x + 1e-9)
   })
 })

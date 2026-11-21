@@ -1,0 +1,132 @@
+import { useMemo } from 'react'
+import type { Graph } from '../../core/graph.js'
+import { CARD_H, computeLayout } from '../layout.js'
+import { PlusIcon } from '../ui/icons.js'
+import { Legend } from './Legend.js'
+import { TaskCard } from './TaskCard.js'
+
+export type DeleteTarget = { kind: 'task'; num: number } | { kind: 'branch'; branchId: number }
+
+export interface GraphViewProps {
+  projectId: number
+  graph: Graph
+  onOpenTask(num: number): void
+  onOpenBranch(branchId: number): void
+  onAddTask(branchId: number): void
+  onNewBranch(fromTask?: number): void
+  onDelete(target: DeleteTarget): void
+}
+
+const LINE = 0.3
+const ADD_R = 1
+const CURVE = 1.2
+
+export function GraphView(props: GraphViewProps) {
+  const { graph } = props
+  const L = useMemo(() => computeLayout(graph), [graph])
+  const byId = new Map(graph.branches.map((b) => [b.id, b]))
+  const taskOf = new Map(graph.tasks.map((t) => [t.num, t]))
+
+  return (
+    <div className="graph-area">
+      <div className="graph-wrap">
+        <div className="graph" style={{ width: `${L.width}rem`, height: `${L.height}rem` }}>
+          <svg
+            viewBox={`0 0 ${L.width} ${L.height}`}
+            style={{ width: `${L.width}rem`, height: `${L.height}rem` }}
+            aria-hidden="true"
+          >
+            {L.checkpoints.map((c) => (
+              <line
+                key={`cp${c.x}`}
+                className="cp-line"
+                x1={c.x}
+                x2={c.x}
+                y1={1.6}
+                y2={L.height}
+                strokeWidth={0.12}
+                strokeDasharray="0.5 0.4"
+              />
+            ))}
+            {L.forks.map((f) => {
+              const color = byId.get(f.branchId)!.color
+              const y0 = f.from.y + CARD_H / 2
+              const r = Math.min(CURVE, f.to.y - y0, f.to.x - f.from.x)
+              const d = `M ${f.from.x} ${y0} V ${f.to.y - r} Q ${f.from.x} ${f.to.y} ${f.from.x + r} ${f.to.y} H ${f.to.x}`
+              return <path key={f.branchId} d={d} fill="none" stroke={color} strokeWidth={LINE} />
+            })}
+            {L.lanes.map((l) => (
+              <g key={l.branchId}>
+                <line x1={l.labelX} x2={l.lineEndX} y1={l.y} y2={l.y} stroke={l.color} strokeWidth={LINE} />
+                <line
+                  x1={l.lineEndX}
+                  x2={l.addX - ADD_R}
+                  y1={l.y}
+                  y2={l.y}
+                  stroke={l.color}
+                  strokeWidth={LINE * 0.7}
+                  strokeDasharray="0.2 0.45"
+                  strokeLinecap="round"
+                />
+              </g>
+            ))}
+          </svg>
+
+          {L.checkpoints.map((c) => (
+            <span key={`cpl${c.x}`} className="cp-pill" style={{ left: `${c.x}rem` }}>
+              {c.label}
+            </span>
+          ))}
+
+          {L.lanes.map((l) => {
+            const b = byId.get(l.branchId)!
+            return (
+              <div key={l.branchId}>
+                <button
+                  type="button"
+                  className="lane-label"
+                  style={{ left: `${l.labelX}rem`, top: `${l.y}rem`, background: l.color }}
+                  onClick={() => props.onOpenBranch(b.id)}
+                  title={b.purpose || undefined}
+                >
+                  {b.name}
+                </button>
+                {l.stuck && (
+                  <span className="stuck-pill" style={{ left: `${l.labelX + l.labelW + 0.35}rem`, top: `${l.y}rem` }}>
+                    stuck
+                  </span>
+                )}
+                <button
+                  type="button"
+                  className="add-task"
+                  aria-label={`Add task to ${b.name}`}
+                  title="Add task"
+                  style={{ left: `${l.addX}rem`, top: `${l.y}rem`, ['--lc' as string]: l.color }}
+                  onClick={() => props.onAddTask(b.id)}
+                >
+                  <PlusIcon />
+                </button>
+              </div>
+            )
+          })}
+
+          {L.cards.map((c) => {
+            const t = taskOf.get(c.num)!
+            return (
+              <TaskCard
+                key={c.num}
+                task={t}
+                graph={graph}
+                x={c.x}
+                y={c.y}
+                onOpen={props.onOpenTask}
+                onBlockerIcon={() => {}}
+              />
+            )
+          })}
+        </div>
+      </div>
+      <Legend />
+    </div>
+  )
+}

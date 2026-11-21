@@ -3,6 +3,7 @@ import type { Project } from '../core/types.js'
 import { api } from './api.js'
 import { NewProjectDialog } from './dialogs/NewProjectDialog.js'
 import { errorText } from './errors.js'
+import { GraphView } from './graph/GraphView.js'
 import { HeaderBar } from './HeaderBar.js'
 import { Home } from './Home.js'
 import { type Route, useRoute } from './route.js'
@@ -102,7 +103,17 @@ function Shell() {
             }
           />
           <main className="content">
-            {route.tab === 'graph' && graph && <div data-testid="graph" />}
+            {route.tab === 'graph' && graph && (
+              <GraphView
+                projectId={route.projectId}
+                graph={graph}
+                onOpenTask={() => {}}
+                onOpenBranch={() => {}}
+                onAddTask={() => {}}
+                onNewBranch={() => {}}
+                onDelete={() => {}}
+              />
+            )}
             {route.tab === 'summary' && (
               <SummaryTab key={route.projectId} projectId={route.projectId} onDirtyChange={onDirtyChange} />
             )}

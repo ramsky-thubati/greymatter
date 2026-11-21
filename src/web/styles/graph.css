@@ -1,0 +1,224 @@
+.graph-area {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 3rem);
+}
+.graph-wrap {
+  flex: 1;
+  overflow: auto;
+  padding: 1.5rem 1.5rem 4rem;
+}
+.graph {
+  position: relative;
+}
+.graph > svg {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+}
+.cp-line {
+  stroke: var(--accent);
+}
+.cp-pill {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  background: color-mix(in srgb, var(--accent) 14%, var(--view));
+  color: var(--accent);
+  font-size: var(--t-xs);
+  font-weight: 700;
+  border-radius: var(--r-pill);
+  padding: 0.2rem 0.6rem;
+  white-space: nowrap;
+}
+
+.lane-label {
+  position: absolute;
+  height: 2rem;
+  transform: translateY(-50%);
+  border: 0;
+  border-radius: var(--r-pill);
+  padding: 0 0.9rem;
+  display: flex;
+  align-items: center;
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  cursor: pointer;
+  z-index: 2;
+}
+.lane-label:hover {
+  filter: brightness(1.1);
+}
+.stuck-pill {
+  position: absolute;
+  transform: translateY(-50%);
+  background: var(--destructive);
+  color: #fff;
+  font-size: var(--t-xs);
+  font-weight: 700;
+  border-radius: var(--r-pill);
+  padding: 0.2rem 0.55rem;
+  z-index: 2;
+}
+
+.card {
+  position: absolute;
+  width: 10rem;
+  height: 4.75rem;
+  transform: translateY(-50%);
+  background: var(--card);
+  border-radius: var(--r-md);
+  box-shadow: var(--shade);
+  padding: 0.55rem 0.65rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  cursor: pointer;
+  z-index: 3;
+  outline: 0;
+}
+.card:hover {
+  box-shadow: var(--shade-hover);
+}
+.card:focus-visible {
+  box-shadow: 0 0 0 0.15rem color-mix(in srgb, var(--accent) 60%, transparent);
+}
+.card.in-progress {
+  box-shadow: 0 0 0 0.15rem var(--s-progress), 0 0.1rem 0.3rem rgba(0, 0, 0, 0.08);
+}
+.card .top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: var(--t-xs);
+  color: var(--dim);
+  font-weight: 700;
+  min-height: 1.15rem;
+}
+.card .id {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.card .title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1.2;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  padding-right: 1.5rem;
+}
+.card.cancelled .title {
+  text-decoration: line-through;
+  color: var(--dim);
+}
+.card .branch-ind {
+  position: absolute;
+  right: 0.4rem;
+  bottom: 0.4rem;
+  width: 1.6rem;
+  height: 1.6rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--dim);
+}
+.card .branch-ind svg {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+.icons {
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+}
+.ico {
+  width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 50%;
+  border: 0;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(192, 28, 40, 0.12);
+  color: var(--blocked);
+  font-style: normal;
+}
+button.ico {
+  cursor: pointer;
+}
+button.ico:hover,
+.ico.active {
+  box-shadow: 0 0 0 0.12rem rgba(192, 28, 40, 0.35);
+}
+.ico svg {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+.warn {
+  color: var(--s-later);
+  display: inline-flex;
+}
+.warn svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.add-task {
+  position: absolute;
+  width: 2rem;
+  height: 2rem;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 0.12rem dashed var(--lc);
+  background: var(--view);
+  color: var(--lc);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+  z-index: 2;
+}
+.add-task:hover,
+.add-task:focus-visible {
+  background: var(--lc);
+  color: #fff;
+  border-style: solid;
+  outline: 0;
+}
+
+.legend {
+  display: flex;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+  align-items: center;
+  padding: 0.75rem 1.5rem 1.25rem;
+  font-size: var(--t-sm);
+  color: var(--dim);
+  border-top: var(--hair) solid var(--border);
+}
+.legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.legend .sep {
+  width: var(--hair);
+  height: 1rem;
+  background: var(--border);
+}
+.legend .pbox {
+  width: 0.9rem;
+  height: 0.7rem;
+  border-radius: 0.2rem;
+  box-shadow: 0 0 0 0.13rem var(--s-progress);
+}

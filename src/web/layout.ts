@@ -7,10 +7,13 @@ export const LANE_H = 8
 export const TOP = 3.5
 export const LABEL_GAP = 1.25
 export const ADD_GAP = 3
+export const STUCK_W = 3.6
 const LEFT = 0.5
 const FORK_GAP = 1.5
 
 export const labelWidth = (name: string): number => 1.8 + 0.55 * name.length
+
+const labelRoom = (b: { name: string; stuck: boolean }) => labelWidth(b.name) + (b.stuck ? STUCK_W : 0)
 
 export interface Layout {
   width: number
@@ -73,7 +76,7 @@ export function computeLayout(graph: Graph): Layout {
     if ('task' in col) {
       const branchId = taskBranch.get(col.task)!
       if (firstTask.has(col.task)) {
-        const w = labelWidth(byId.get(branchId)!.name)
+        const w = labelRoom(byId.get(branchId)!)
         x = Math.max(x, minLabelX(branchId) + w + LABEL_GAP)
         labelAt.set(branchId, x - LABEL_GAP - w)
       }
@@ -96,8 +99,8 @@ export function computeLayout(graph: Graph): Layout {
       stuck: b.stuck,
       labelX,
       labelW,
-      lineEndX: last ? last.x + CARD_W / 2 : labelX + labelW,
-      addX: last ? last.x + CARD_W + ADD_GAP : labelX + labelW + ADD_GAP,
+      lineEndX: last ? last.x + CARD_W / 2 : labelX + labelRoom(b),
+      addX: last ? last.x + CARD_W + ADD_GAP : labelX + labelRoom(b) + ADD_GAP,
     }
   })
 
