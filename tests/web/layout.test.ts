@@ -3,6 +3,7 @@ import {
   ADD_GAP,
   CARD_H,
   CARD_W,
+  CP_PILL_H,
   checkpointPath,
   computeLayout,
   forkPath,
@@ -306,4 +307,8 @@ test('checkpointPath', () => {
 
 test('checkpointPath straight run', () => {
   expect(checkpointPath([{ x: 5, y: 10 }, { x: 5, y: 18 }], 1, 30, 3)).toBe('M 5 1 V 13 V 21 V 30')
+})
+
+test('checkpoint pill clears the top cards', () => {
+  expect(TOP - CARD_H / 2).toBeGreaterThanOrEqual(CP_PILL_H + 0.25)
 })

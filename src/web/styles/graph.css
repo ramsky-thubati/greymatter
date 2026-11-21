@@ -28,7 +28,7 @@
   font-size: var(--t-xs);
   font-weight: 700;
   border-radius: var(--r-pill);
-  padding: 0.2rem 0.6rem;
+  padding: 0 0.6rem;
   white-space: nowrap;
 }
 

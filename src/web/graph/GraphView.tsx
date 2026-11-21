@@ -5,7 +5,7 @@ import { api } from '../api.js'
 import { taskLabel } from '../blockers.js'
 import { errorText } from '../errors.js'
 import type { DeleteTarget } from '../impact.js'
-import { CARD_H, checkpointPath, computeLayout, forkPath } from '../layout.js'
+import { CARD_H, CP_PILL_H, checkpointPath, computeLayout, forkPath } from '../layout.js'
 import { PlusIcon } from '../ui/icons.js'
 import { useToast } from '../ui/Toast.js'
 import { BlockerPopover } from './BlockerPopover.js'
@@ -61,7 +61,7 @@ export function GraphView(props: GraphViewProps) {
               <path
                 key={`cp${c.label}`}
                 className="cp-line"
-                d={checkpointPath(c.points, 1.6, L.height, CARD_H / 2 + 0.4)}
+                d={checkpointPath(c.points, CP_PILL_H, L.height, CARD_H / 2 + 0.4)}
                 fill="none"
                 strokeWidth={0.12}
                 strokeDasharray="0.5 0.4"
@@ -89,7 +89,7 @@ export function GraphView(props: GraphViewProps) {
           </svg>
 
           {L.checkpoints.map((c) => (
-            <span key={`cpl${c.label}`} className="cp-pill" style={{ left: `${c.labelX}rem` }}>
+            <span key={`cpl${c.label}`} className="cp-pill" style={{ left: `${c.labelX}rem`, height: `${CP_PILL_H}rem`, lineHeight: `${CP_PILL_H}rem` }}>
               {c.label}
             </span>
           ))}

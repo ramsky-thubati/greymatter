@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { afterEach, expect, test, vi } from 'vitest'
 import type { Graph } from '../../src/core/graph.js'
 import { GraphView } from '../../src/web/graph/GraphView.js'
-import { computeLayout } from '../../src/web/layout.js'
+import { computeLayout, CP_PILL_H } from '../../src/web/layout.js'
 import { ToastProvider } from '../../src/web/ui/Toast.js'
 import { demoGraph, makeGraph } from './fixtures.js'
 
@@ -156,6 +156,7 @@ test('checkpoint draws as a path', () => {
   const { container } = show()
   const line = container.querySelector('path.cp-line')
   expect(line?.getAttribute('d')).toMatch(/^M /)
+  expect(screen.getByText('v1 → v2').style.height).toBe(`${CP_PILL_H}rem`)
 })
 
 test('sizes are rem', () => {
