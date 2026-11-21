@@ -1,6 +1,7 @@
 import { type Db, tx } from './db.js'
 import { DomainError } from './errors.js'
 import { formatTaskId } from './ids.js'
+import { moveTask } from './ordering.js'
 import { getProject } from './projects.js'
 import { nextSeq } from './sequence.js'
 import type { Branch, Task, TaskState } from './types.js'
@@ -47,7 +48,7 @@ const toTask = (r: TaskRow): Task => ({
   flagged: r.flagged !== 0,
 })
 
-function requireText(value: string, what: string): string {
+export function requireText(value: string, what: string): string {
   const clean = value.trim()
   if (!clean) throw new DomainError('invalid', `${what} must not be blank`)
   return clean
@@ -111,9 +112,6 @@ export function createTask(
   input: { branchId: number; title: string; details?: string; before?: number; after?: number },
 ): Task {
   const title = requireText(input.title, 'Task title')
-  if (input.before !== undefined || input.after !== undefined) {
-    throw new DomainError('invalid', 'before/after placement is not supported yet')
-  }
   return tx(db, () => {
     const project = db
       .prepare('SELECT next_task_num AS n FROM projects WHERE id = ?')
@@ -136,6 +134,9 @@ export function createTask(
       nextSeq(db, projectId),
     )
     db.prepare('UPDATE projects SET next_task_num = ? WHERE id = ?').run(project.n + 1, projectId)
+    if (input.before !== undefined || input.after !== undefined) {
+      moveTask(db, projectId, project.n, { before: input.before, after: input.after })
+    }
     return getTask(db, projectId, project.n)
   })
 }

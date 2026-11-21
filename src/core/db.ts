@@ -60,6 +60,7 @@ export function openDb(path: string): Db {
 }
 
 export function tx<T>(db: Db, fn: () => T): T {
+  if (db.isTransaction) return fn()
   db.exec('BEGIN')
   try {
     const result = fn()

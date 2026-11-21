@@ -41,13 +41,10 @@ describe('tasks', () => {
     expect(t.branchPos).toBe(2)
   })
 
-  test('rejects blank title, foreign branch, before/after for now', () => {
+  test('rejects blank title and foreign branch', () => {
     expect(() => createTask(db, p.id, { branchId: main, title: '  ' })).toThrow(expect.objectContaining({ code: 'invalid' }))
     const q = createProject(db, 'B')
     expect(() => createTask(db, p.id, { branchId: mainBranchId(db, q.id), title: 'x' })).toThrow(expect.objectContaining({ code: 'not_found' }))
-    createTask(db, p.id, { branchId: main, title: 'a' })
-    expect(() => createTask(db, p.id, { branchId: main, title: 'x', before: 1 })).toThrow(expect.objectContaining({ code: 'invalid' }))
-    expect(() => createTask(db, p.id, { branchId: main, title: 'x', after: 1 })).toThrow(expect.objectContaining({ code: 'invalid' }))
   })
 
   test('updating a flagged task clears the flag', () => {
