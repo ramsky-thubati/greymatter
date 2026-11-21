@@ -261,3 +261,28 @@ test('CreateTaskPopup focuses the title and creates on the chosen branch', async
   fireEvent.click(screen.getByText('Create task'))
   await waitFor(() => expect(create).toHaveBeenCalledWith(1, { branchId: 3, title: 'New thing' }))
 })
+
+test('failed flush reverts the field so the next Esc closes', async () => {
+  vi.spyOn(api, 'updateTask').mockRejectedValue({ status: 400, message: 'title is required' })
+  const onClose = vi.fn()
+  renderTask(graph(), onClose)
+  const input = screen.getByLabelText('Title') as HTMLInputElement
+  fireEvent.change(input, { target: { value: '' } })
+  fireEvent.keyDown(document, { key: 'Escape' })
+  expect((await screen.findByRole('alert')).textContent).toBe('title is required')
+  await waitFor(() => expect(input.value).toBe('Design schema'))
+  expect(onClose).not.toHaveBeenCalled()
+  fireEvent.keyDown(document, { key: 'Escape' })
+  await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1))
+})
+
+test('BranchPopup flushes purpose on Esc', async () => {
+  const g = graph()
+  const update = vi.spyOn(api, 'updateBranch').mockResolvedValue(g.branches[1]!)
+  const onClose = vi.fn()
+  render(<BranchPopup projectId={1} branch={g.branches[1]!} graph={g} onClose={onClose} onEditLinks={() => {}} />)
+  fireEvent.change(screen.getByLabelText('Purpose'), { target: { value: 'explore' } })
+  fireEvent.keyDown(document, { key: 'Escape' })
+  await waitFor(() => expect(onClose).toHaveBeenCalled())
+  expect(update).toHaveBeenCalledWith(1, 2, { purpose: 'explore' })
+})

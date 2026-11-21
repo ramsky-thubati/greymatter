@@ -85,6 +85,8 @@ export function BranchPopup({
         await api.updateBranch(projectId, live.id, patch)
       } catch (e) {
         setError(errorText(e))
+        setName(live.name)
+        setPurpose(live.purpose)
         return
       }
     }

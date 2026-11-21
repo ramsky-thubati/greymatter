@@ -81,6 +81,8 @@ export function TaskPopup({
         await api.updateTask(projectId, id, patch)
       } catch (e) {
         setError(errorText(e))
+        setTitle(live.title)
+        setDetails(live.details)
         return
       }
     }
