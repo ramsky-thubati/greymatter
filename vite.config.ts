@@ -5,5 +5,5 @@ export default defineConfig({
   root: 'src/web',
   plugins: [react()],
   build: { outDir: '../../dist/web', emptyOutDir: true },
-  server: { proxy: { '^/api/': 'http://127.0.0.1:4747' } },
+  server: { proxy: { '^/api/': { target: 'http://127.0.0.1:4747', changeOrigin: false } } },
 })

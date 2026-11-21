@@ -4,6 +4,7 @@ import { afterEach, expect, test, vi } from 'vitest'
 import type { Graph, GraphBranch, GraphTask } from '../../src/core/graph.js'
 import { api } from '../../src/web/api.js'
 import { BranchPopup } from '../../src/web/BranchPopup.js'
+import { CreateBranchPopup, CreateTaskPopup } from '../../src/web/CreatePopups.js'
 import { TaskPopup } from '../../src/web/TaskPopup.js'
 
 const task = (num: number, over: Partial<GraphTask> = {}): GraphTask => ({
@@ -163,6 +164,7 @@ test('popup closes when the task disappears from the graph', () => {
   const g = graph()
   const { rerender } = render(<TaskPopup projectId={1} task={g.tasks[0]!} graph={g} onClose={onClose} />)
   const gone = { ...g, tasks: g.tasks.slice(1) }
+  expect(onClose).not.toHaveBeenCalled()
   rerender(<TaskPopup projectId={1} task={g.tasks[0]!} graph={gone} onClose={onClose} />)
   expect(onClose).toHaveBeenCalled()
 })
@@ -183,4 +185,79 @@ test('BranchPopup move root calls updateBranch', () => {
   render(<BranchPopup projectId={1} branch={g.branches[1]!} graph={g} onClose={() => {}} onEditLinks={() => {}} />)
   fireEvent.change(screen.getByLabelText('Root'), { target: { value: '' } })
   expect(update).toHaveBeenCalledWith(1, 2, { rootTask: null })
+})
+
+test('details typed before Esc are saved', async () => {
+  const g = graph()
+  const update = vi.spyOn(api, 'updateTask').mockResolvedValue(g.tasks[0]!)
+  const onClose = vi.fn()
+  renderTask(g, onClose)
+  fireEvent.change(screen.getByLabelText('Details'), { target: { value: 'half typed' } })
+  fireEvent.keyDown(document, { key: 'Escape' })
+  await waitFor(() => expect(onClose).toHaveBeenCalled())
+  expect(update).toHaveBeenCalledWith(1, 'T-7', { details: 'half typed' })
+})
+
+test('flush failure keeps the popup open and shows the error', async () => {
+  vi.spyOn(api, 'updateTask').mockRejectedValue({ status: 400, message: 'bad' })
+  const onClose = vi.fn()
+  renderTask(graph(), onClose)
+  fireEvent.change(screen.getByLabelText('Details'), { target: { value: 'x' } })
+  fireEvent.mouseDown(screen.getByTestId('popup-backdrop'))
+  expect((await screen.findByRole('alert')).textContent).toBe('bad')
+  expect(onClose).not.toHaveBeenCalled()
+})
+
+test('BranchPopup delete uses branch copy for dependents and retries with confirm', async () => {
+  const g = graph()
+  const del = vi
+    .spyOn(api, 'deleteBranch')
+    .mockRejectedValueOnce({ status: 409, details: { dependents: [9] } })
+    .mockRejectedValueOnce({ status: 409, details: { dependents: [9, 10] } })
+    .mockResolvedValueOnce(undefined)
+  const onClose = vi.fn()
+  render(<BranchPopup projectId={1} branch={g.branches[1]!} graph={g} onClose={onClose} onEditLinks={() => {}} />)
+  fireEvent.click(screen.getByText('Delete'))
+  expect(await screen.findByText('T-9 waits on a task on this branch. Delete anyway?')).toBeTruthy()
+  fireEvent.click(screen.getByText('Delete anyway'))
+  expect(await screen.findByText('T-9, T-10 wait on tasks on this branch. Delete anyway?')).toBeTruthy()
+  fireEvent.click(screen.getByText('Delete anyway'))
+  await waitFor(() => expect(onClose).toHaveBeenCalled())
+  expect(del).toHaveBeenLastCalledWith(1, 2, { confirm: true })
+})
+
+test('BranchPopup delete uses branch copy for forked branches', async () => {
+  const g = graph()
+  vi.spyOn(api, 'deleteBranch').mockRejectedValueOnce({ status: 409, details: { forkedBranches: [3, 4] } })
+  render(<BranchPopup projectId={1} branch={g.branches[1]!} graph={g} onClose={() => {}} onEditLinks={() => {}} />)
+  fireEvent.click(screen.getByText('Delete'))
+  const alert = await screen.findByRole('alert')
+  expect(alert.textContent).toContain('Branch deep forks from a task on this branch. Move or delete it first.')
+  expect(alert.textContent).toContain('Branch other forks from a task on this branch. Move or delete it first.')
+})
+
+test('CreateBranchPopup prefills fromTask and offers Top level', () => {
+  render(<CreateBranchPopup projectId={1} graph={graph()} fromTask={9} onClose={() => {}} />)
+  const select = screen.getByLabelText('From task') as HTMLSelectElement
+  expect(select.value).toBe('T-9')
+  expect(within(select).getAllByRole('option')[0]!.textContent).toBe('Top level')
+})
+
+test('CreateBranchPopup submits fromTask', async () => {
+  const create = vi.spyOn(api, 'createBranch').mockResolvedValue(graph().branches[0]!)
+  render(<CreateBranchPopup projectId={1} graph={graph()} fromTask={9} onClose={() => {}} />)
+  fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'idea' } })
+  fireEvent.click(screen.getByText('Create branch'))
+  await waitFor(() => expect(create).toHaveBeenCalledWith(1, { name: 'idea', fromTask: 'T-9' }))
+})
+
+test('CreateTaskPopup focuses the title and creates on the chosen branch', async () => {
+  const create = vi.spyOn(api, 'createTask').mockResolvedValue(graph().tasks[0]!)
+  render(<CreateTaskPopup projectId={1} graph={graph()} defaultBranchId={2} onClose={() => {}} />)
+  const title = screen.getByLabelText('Title')
+  expect(document.activeElement).toBe(title)
+  fireEvent.change(title, { target: { value: 'New thing' } })
+  fireEvent.change(screen.getByLabelText('Branch'), { target: { value: '3' } })
+  fireEvent.click(screen.getByText('Create task'))
+  await waitFor(() => expect(create).toHaveBeenCalledWith(1, { branchId: 3, title: 'New thing' }))
 })

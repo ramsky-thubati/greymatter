@@ -75,13 +75,29 @@ export function BranchPopup({
     )
   }
 
+  const closeAndFlush = async () => {
+    const patch: { name?: string; purpose?: string } = {}
+    if (name !== live.name) patch.name = name
+    if (purpose !== live.purpose) patch.purpose = purpose
+    if (Object.keys(patch).length > 0) {
+      setError(null)
+      try {
+        await api.updateBranch(projectId, live.id, patch)
+      } catch (e) {
+        setError(errorText(e))
+        return
+      }
+    }
+    onClose()
+  }
+
   const remove = async (confirm: boolean) => {
     setError(null)
     try {
       await (confirm ? api.deleteBranch(projectId, live.id, { confirm: true }) : api.deleteBranch(projectId, live.id))
       onClose()
     } catch (e) {
-      const outcome = deleteOutcome(e, (bid) => graph.branches.find((b) => b.id === bid)?.name ?? `#${bid}`)
+      const outcome = deleteOutcome(e, (bid) => graph.branches.find((b) => b.id === bid)?.name ?? `#${bid}`, 'branch')
       setConfirmMessage(outcome.kind === 'dependents' ? outcome.message : null)
       setError(outcome.kind === 'error' ? outcome.message : null)
     }
@@ -93,7 +109,7 @@ export function BranchPopup({
   const targets = graph.tasks.filter((t) => !excluded.has(t.num))
 
   return (
-    <Popup title={`Branch ${live.name}`} onClose={onClose}>
+    <Popup title={`Branch ${live.name}`} onClose={() => void closeAndFlush()}>
       <label>
         Name
         <input

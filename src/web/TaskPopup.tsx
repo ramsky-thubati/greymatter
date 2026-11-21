@@ -71,6 +71,22 @@ export function TaskPopup({
     )
   }
 
+  const closeAndFlush = async () => {
+    const patch: { title?: string; details?: string } = {}
+    if (title !== live.title) patch.title = title
+    if (details !== live.details) patch.details = details
+    if (Object.keys(patch).length > 0) {
+      setError(null)
+      try {
+        await api.updateTask(projectId, id, patch)
+      } catch (e) {
+        setError(errorText(e))
+        return
+      }
+    }
+    onClose()
+  }
+
   const remove = async (confirm: boolean) => {
     setError(null)
     try {
@@ -87,7 +103,7 @@ export function TaskPopup({
   const candidates = graph.tasks.filter((t) => t.num !== live.num && !live.blockedBy.includes(t.num))
 
   return (
-    <Popup title={id} onClose={onClose}>
+    <Popup title={id} onClose={() => void closeAndFlush()}>
       <label>
         Title
         <input
