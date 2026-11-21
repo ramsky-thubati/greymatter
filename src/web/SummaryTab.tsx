@@ -3,8 +3,9 @@ import { api, type SummaryVersion } from './api.js'
 import { errorText } from './Popup.js'
 
 const NOTICE = 'Claude updated the summary. Reload to see it.'
+const OVERWRITE = 'Claude changed the summary since you started editing. Overwrite?'
 
-export function SummaryTab({ projectId }: { projectId: number }) {
+export function SummaryTab({ projectId, onDirtyChange }: { projectId: number; onDirtyChange?: (dirty: boolean) => void }) {
   const [version, setVersion] = useState<number | null>(null)
   const [saved, setSaved] = useState('')
   const [text, setText] = useState('')
@@ -14,19 +15,16 @@ export function SummaryTab({ projectId }: { projectId: number }) {
   const [busy, setBusy] = useState(false)
   const latest = useRef(0)
   const dirty = useRef(false)
+  const savedRef = useRef('')
 
   const dirtyNow = text !== saved
   dirty.current = dirtyNow
+  savedRef.current = saved
 
-  const refreshVersions = useCallback(() => {
-    const ticket = latest.current
-    api
-      .listSummaryVersions(projectId)
-      .then((v) => {
-        if (ticket === latest.current) setVersions(v)
-      })
-      .catch(() => {})
-  }, [projectId])
+  useEffect(() => {
+    onDirtyChange?.(dirtyNow)
+  }, [dirtyNow, onDirtyChange])
+  useEffect(() => () => onDirtyChange?.(false), [onDirtyChange])
 
   const load = useCallback((explicit: boolean) => {
     const ticket = ++latest.current
@@ -34,8 +32,9 @@ export function SummaryTab({ projectId }: { projectId: number }) {
       .then(([live, all]) => {
         if (ticket !== latest.current) return
         setVersions(all)
+        setError(null)
         if (!explicit && dirty.current) {
-          setStale(true)
+          if (live.body !== savedRef.current) setStale(true)
           return
         }
         setVersion(live.version)
@@ -58,27 +57,27 @@ export function SummaryTab({ projectId }: { projectId: number }) {
     setError(null)
     load(true)
     const source = new EventSource(`/api/projects/${projectId}/events`)
-    source.addEventListener('changed', () => {
-      if (dirty.current) {
-        setStale(true)
-        refreshVersions()
-      } else {
-        load(false)
-      }
+    source.addEventListener('changed', () => load(false))
+    let opened = false
+    source.addEventListener('open', () => {
+      if (opened) load(false)
+      opened = true
     })
     return () => {
       latest.current++
       source.close()
     }
-  }, [projectId, load, refreshVersions])
+  }, [projectId, load])
 
   const save = async () => {
+    const wasStale = stale
+    if (wasStale && !window.confirm(OVERWRITE)) return
     setBusy(true)
     setError(null)
     try {
       await api.updateSummary(projectId, text)
       setSaved(text)
-      setStale(false)
+      if (wasStale) setStale(false)
     } catch (e) {
       setError(errorText(e))
     } finally {
@@ -108,10 +107,12 @@ export function SummaryTab({ projectId }: { projectId: number }) {
       <div className="summary-head">
         <h2>{version === null ? 'Summary' : `Summary v${version}`}</h2>
         <div className="summary-actions">
-          <button onClick={save} disabled={!dirtyNow || busy}>
+          <button onClick={save} disabled={version === null || !dirtyNow || busy}>
             Save
           </button>
-          <button onClick={() => copy(text)}>Copy</button>
+          <button onClick={() => copy(text)} disabled={version === null}>
+            Copy
+          </button>
           <button
             onClick={checkpoint}
             disabled={version === null || dirtyNow}
@@ -129,12 +130,14 @@ export function SummaryTab({ projectId }: { projectId: number }) {
       {error && (
         <p className="summary-error" role="alert">
           {error}
+          {version === null && <button onClick={() => load(true)}>Retry</button>}
         </p>
       )}
       <textarea
         className="summary-text"
         aria-label="Summary"
         value={text}
+        readOnly={version === null}
         onChange={(e) => setText(e.target.value)}
         spellCheck={false}
       />

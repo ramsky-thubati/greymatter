@@ -50,6 +50,7 @@ export function App() {
   const [tab, setTab] = useState<'graph' | 'summary'>('graph')
   const [error, setError] = useState<string | null>(null)
   const [popup, setPopup] = useState<PopupState | null>(null)
+  const [summaryDirty, setSummaryDirty] = useState(false)
   const [lastBranchId, setLastBranchId] = useState<number | null>(null)
   const [editingBranchId, setEditingBranchId] = useState<number | null>(null)
   const { graph } = useGraph(projectId)
@@ -69,6 +70,19 @@ export function App() {
   }, [])
 
   useEffect(() => remember(projectId), [projectId])
+
+  useEffect(() => {
+    if (!summaryDirty) return
+    const guard = (e: BeforeUnloadEvent) => e.preventDefault()
+    window.addEventListener('beforeunload', guard)
+    return () => window.removeEventListener('beforeunload', guard)
+  }, [summaryDirty])
+
+  const switchProject = (id: number) => {
+    if (id === projectId) return
+    if (summaryDirty && !window.confirm('Discard unsaved summary edits?')) return
+    setProjectId(id)
+  }
 
   const closePopup = useCallback(() => setPopup(null), [])
 
@@ -90,7 +104,7 @@ export function App() {
 
   const onSelect = (value: string) => {
     if (value === NEW_PROJECT) setPopup({ kind: 'createProject' })
-    else setProjectId(Number(value))
+    else switchProject(Number(value))
   }
 
   return (
@@ -139,7 +153,11 @@ export function App() {
             {graph.tasks.length === 0 && <div className="empty">No tasks yet. Add one with + Task.</div>}
           </>
         )}
-        {tab === 'summary' && projectId !== null && graph && <SummaryTab projectId={projectId} />}
+        {projectId !== null && graph && (
+          <div hidden={tab !== 'summary'}>
+            <SummaryTab key={projectId} projectId={projectId} onDirtyChange={setSummaryDirty} />
+          </div>
+        )}
       </main>
       {projectId !== null && graph && popup?.kind === 'task' && graphTask(graph, popup.num) && (
         <TaskPopup
@@ -178,7 +196,7 @@ export function App() {
         <CreateProjectPopup
           onCreated={(p) => {
             setProjects((list) => [...(list ?? []), p])
-            setProjectId(p.id)
+            switchProject(p.id)
           }}
           onClose={closePopup}
         />

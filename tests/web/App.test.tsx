@@ -43,3 +43,42 @@ test('clicking a stop opens the task popup, and Branch from here opens create-br
   const dialog = await screen.findByRole('dialog', { name: 'New branch' })
   expect((within(dialog).getByLabelText('From task') as HTMLSelectElement).value).toBe('T-9')
 })
+
+const second = { ...graph, project: { id: 2, name: 'other' } }
+
+test('summary edits survive switching to Graph and back', async () => {
+  vi.spyOn(api, 'getSummary').mockResolvedValue({ version: 1, body: 'saved' })
+  vi.spyOn(api, 'listSummaryVersions').mockResolvedValue([{ version: 1, body: 'saved', frozenAt: null }])
+  render(<App />)
+  fireEvent.click(await screen.findByRole('button', { name: 'Summary' }))
+  const box = (await screen.findByLabelText('Summary')) as HTMLTextAreaElement
+  await waitFor(() => expect(box.value).toBe('saved'))
+  fireEvent.change(box, { target: { value: 'typed' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Graph' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Summary' }))
+  expect((screen.getByLabelText('Summary') as HTMLTextAreaElement).value).toBe('typed')
+})
+
+test('switching project while the summary is dirty asks first, and cancel keeps the project', async () => {
+  vi.mocked(api.listProjects).mockResolvedValue([
+    { id: 1, name: 'demo' },
+    { id: 2, name: 'other' },
+  ])
+  vi.mocked(api.getGraph).mockImplementation(async (id) => (id === 2 ? second : graph))
+  vi.spyOn(api, 'getSummary').mockResolvedValue({ version: 1, body: 'saved' })
+  vi.spyOn(api, 'listSummaryVersions').mockResolvedValue([{ version: 1, body: 'saved', frozenAt: null }])
+  const confirm = vi.fn().mockReturnValue(false)
+  vi.stubGlobal('confirm', confirm)
+  render(<App />)
+  fireEvent.click(await screen.findByRole('button', { name: 'Summary' }))
+  const box = (await screen.findByLabelText('Summary')) as HTMLTextAreaElement
+  await waitFor(() => expect(box.value).toBe('saved'))
+  fireEvent.change(box, { target: { value: 'typed' } })
+  const select = screen.getByLabelText('Project') as HTMLSelectElement
+  fireEvent.change(select, { target: { value: '2' } })
+  expect(confirm).toHaveBeenCalledWith('Discard unsaved summary edits?')
+  expect(select.value).toBe('1')
+  confirm.mockReturnValue(true)
+  fireEvent.change(select, { target: { value: '2' } })
+  await waitFor(() => expect(select.value).toBe('2'))
+})

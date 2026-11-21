@@ -167,3 +167,72 @@ test('text typed while a background reload is in flight is kept and the notice s
   expect(box.value).toBe('typed meanwhile')
   expect(await screen.findByText('Claude updated the summary. Reload to see it.')).toBeTruthy()
 })
+
+test('a failed load makes the editor read-only, disables actions, and Retry recovers', async () => {
+  vi.mocked(api.getSummary).mockRejectedValueOnce(new Error('offline'))
+  render(<SummaryTab projectId={1} />)
+  const box = await textarea()
+  expect((await screen.findByRole('alert')).textContent).toContain('offline')
+  expect(box.readOnly).toBe(true)
+  for (const name of ['Save', 'Checkpoint', 'Copy']) {
+    expect((screen.getByRole('button', { name }) as HTMLButtonElement).disabled).toBe(true)
+  }
+  fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+  await waitFor(() => expect(box.value).toBe(md))
+  expect(box.readOnly).toBe(false)
+  expect(screen.queryByRole('alert')).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull()
+})
+
+test('an event stream reconnect reloads, but the first open does not', async () => {
+  render(<SummaryTab projectId={1} />)
+  const box = await textarea()
+  await waitFor(() => expect(box.value).toBe(md))
+  const calls = vi.mocked(api.getSummary).mock.calls.length
+  await act(async () => FakeSource.all[0]!.emit('open'))
+  expect(api.getSummary).toHaveBeenCalledTimes(calls)
+  vi.mocked(api.getSummary).mockResolvedValue({ version: 1, body: 'after reconnect' })
+  await act(async () => FakeSource.all[0]!.emit('open'))
+  await waitFor(() => expect(box.value).toBe('after reconnect'))
+})
+
+test('a changed event whose summary body is unchanged shows no notice', async () => {
+  render(<SummaryTab projectId={1} />)
+  const box = await textarea()
+  await waitFor(() => expect(box.value).toBe(md))
+  fireEvent.change(box, { target: { value: 'my edit' } })
+  const calls = vi.mocked(api.listSummaryVersions).mock.calls.length
+  await act(async () => FakeSource.all[0]!.emit('changed'))
+  await waitFor(() => expect(api.listSummaryVersions).toHaveBeenCalledTimes(calls + 1))
+  expect(box.value).toBe('my edit')
+  expect(screen.queryByText('Claude updated the summary. Reload to see it.')).toBeNull()
+})
+
+test('save while stale asks first; cancel does not save, confirm saves and clears the notice', async () => {
+  const confirm = vi.fn().mockReturnValue(false)
+  vi.stubGlobal('confirm', confirm)
+  const update = vi.spyOn(api, 'updateSummary').mockResolvedValue(undefined as never)
+  render(<SummaryTab projectId={1} />)
+  const box = await textarea()
+  await waitFor(() => expect(box.value).toBe(md))
+  fireEvent.change(box, { target: { value: 'my edit' } })
+  vi.mocked(api.getSummary).mockResolvedValue({ version: 1, body: 'from claude' })
+  await act(async () => FakeSource.all[0]!.emit('changed'))
+  await screen.findByText('Claude updated the summary. Reload to see it.')
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+  expect(confirm).toHaveBeenCalledWith('Claude changed the summary since you started editing. Overwrite?')
+  expect(update).not.toHaveBeenCalled()
+  confirm.mockReturnValue(true)
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+  await waitFor(() => expect(update).toHaveBeenCalledWith(1, 'my edit'))
+  await waitFor(() => expect(screen.queryByText('Claude updated the summary. Reload to see it.')).toBeNull())
+})
+
+test('onDirtyChange reports unsaved edits', async () => {
+  const onDirty = vi.fn()
+  render(<SummaryTab projectId={1} onDirtyChange={onDirty} />)
+  const box = await textarea()
+  await waitFor(() => expect(box.value).toBe(md))
+  fireEvent.change(box, { target: { value: 'x' } })
+  expect(onDirty).toHaveBeenLastCalledWith(true)
+})
