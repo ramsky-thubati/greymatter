@@ -8,7 +8,8 @@ CREATE TABLE IF NOT EXISTS projects (
   id INTEGER PRIMARY KEY,
   name TEXT NOT NULL UNIQUE COLLATE NOCASE,
   next_task_num INTEGER NOT NULL DEFAULT 1,
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'in_progress' CHECK (status IN ('in_progress','complete'))
 );
 CREATE TABLE IF NOT EXISTS branches (
   id INTEGER PRIMARY KEY,
@@ -62,9 +63,19 @@ export function openDb(path: string): Db {
   return db
 }
 
+const hasColumn = (db: Db, table: string, column: string) =>
+  (db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]).some((c) => c.name === column)
+
 function migrate(db: Db): void {
-  const cols = db.prepare('PRAGMA table_info(branches)').all() as { name: string }[]
-  if (cols.some((c) => c.name === 'color')) return
+  migrateBranchColor(db)
+  if (!hasColumn(db, 'projects', 'status'))
+    db.exec(
+      "ALTER TABLE projects ADD COLUMN status TEXT NOT NULL DEFAULT 'in_progress' CHECK (status IN ('in_progress','complete'))",
+    )
+}
+
+function migrateBranchColor(db: Db): void {
+  if (hasColumn(db, 'branches', 'color')) return
   tx(db, () => {
     db.exec('ALTER TABLE branches ADD COLUMN color TEXT')
     const rows = db.prepare('SELECT id, project_id FROM branches ORDER BY project_id, created_at, id').all() as {

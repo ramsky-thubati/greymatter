@@ -1,8 +1,11 @@
 export type TaskState = 'todo' | 'in_progress' | 'later' | 'done' | 'cancelled'
 
+export type ProjectStatus = 'in_progress' | 'complete'
+
 export interface Project {
   id: number
   name: string
+  status: ProjectStatus
 }
 
 export interface Branch {
