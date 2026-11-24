@@ -220,3 +220,26 @@ describe('cross-site protection', () => {
     expect((await r.json()).error.code).toBe('invalid')
   })
 })
+
+test('PATCH project status', async () => {
+  const res = await patch(`/api/projects/${pid}`, { status: 'complete' })
+  expect(res.status).toBe(200)
+  expect((await res.json()).status).toBe('complete')
+  const list = await (await get('/api/projects')).json()
+  expect(list[0].status).toBe('complete')
+})
+
+test('PATCH project rejects unknown status', async () => {
+  expect((await patch(`/api/projects/${pid}`, { status: 'done' })).status).toBe(400)
+})
+
+test('DELETE project', async () => {
+  expect((await del(`/api/projects/${pid}`)).status).toBe(204)
+  expect((await get(`/api/projects/${pid}/graph`)).status).toBe(404)
+  expect(await (await get('/api/projects')).json()).toEqual([])
+})
+
+test('PATCH and DELETE unknown project are 404', async () => {
+  expect((await patch('/api/projects/9999', { status: 'complete' })).status).toBe(404)
+  expect((await del('/api/projects/9999')).status).toBe(404)
+})

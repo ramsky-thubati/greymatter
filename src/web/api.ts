@@ -1,5 +1,5 @@
 import type { Graph } from '../core/graph.js'
-import type { Branch, Project, Task, TaskState } from '../core/types.js'
+import type { Branch, Project, ProjectStatus, Task, TaskState } from '../core/types.js'
 
 export class ApiError extends Error {
   constructor(
@@ -42,6 +42,9 @@ export interface SummaryVersion {
 export const api = {
   listProjects: () => request<Project[]>('GET', '/projects'),
   createProject: (name: string) => request<Project>('POST', '/projects', { name }),
+  setProjectStatus: (projectId: number, status: ProjectStatus) =>
+    request<Project>('PATCH', p(projectId), { status }),
+  deleteProject: (projectId: number) => request<void>('DELETE', p(projectId)),
   getGraph: (projectId: number) => request<Graph>('GET', `${p(projectId)}/graph`),
 
   createBranch: (projectId: number, body: { name: string; purpose?: string; fromTask?: string }) =>

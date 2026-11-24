@@ -10,7 +10,14 @@ import { DomainError } from '../core/errors.js'
 import { getGraph } from '../core/graph.js'
 import { parseTaskId } from '../core/ids.js'
 import { moveTask, relinkBranch } from '../core/ordering.js'
-import { createProject, findProjectByName, getProject, listProjects } from '../core/projects.js'
+import {
+  createProject,
+  deleteProject,
+  findProjectByName,
+  getProject,
+  listProjects,
+  setProjectStatus,
+} from '../core/projects.js'
 import { deleteBranch, deleteTask, moveRoot } from '../core/structure.js'
 import { createCheckpoint, getLiveSummary, listSummaryVersions, updateLiveSummary } from '../core/summary.js'
 import { createBranch, createTask, getTask, resumeTask, updateBranch, updateTask } from '../core/tasks.js'
@@ -22,6 +29,7 @@ const taskId = taskRef.transform((v) => parseTaskId(v))
 const states = ['todo', 'in_progress', 'later', 'done', 'cancelled'] as const
 
 const projectBody = z.object({ name })
+const projectPatchBody = z.object({ status: z.enum(['in_progress', 'complete']) })
 const branchCreateBody = z.object({ name, purpose: z.string().optional(), fromTask: taskId.optional() })
 const branchPatchBody = z.object({
   name: name.optional(),
@@ -149,6 +157,17 @@ export function createApp(db: Db, events: ProjectEvents, opts: { staticDir?: str
     return c.json(createProject(db, name))
   })
   app.get('/api/projects/by-name/:name', (c) => c.json(findProjectByName(db, c.req.param('name'))))
+  app.patch('/api/projects/:pid', async (c) => {
+    const pid = pidOf(c)
+    const { status } = await readJson(c, projectPatchBody)
+    return c.json(mutated(pid, setProjectStatus(db, pid, status)))
+  })
+  app.delete('/api/projects/:pid', (c) => {
+    const pid = pidOf(c)
+    deleteProject(db, pid)
+    mutated(pid, null)
+    return c.body(null, 204)
+  })
 
   app.use('/api/projects/:pid/*', async (c, next) => {
     getProject(db, pidOf(c))
