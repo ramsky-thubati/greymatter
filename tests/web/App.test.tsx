@@ -214,3 +214,17 @@ test('no Completed section when nothing is complete', async () => {
   await screen.findByText('demo')
   expect(screen.queryByText(/^Completed/)).toBeNull()
 })
+
+test('deleting with unsaved summary edits goes straight home', async () => {
+  vi.spyOn(api, 'deleteProject').mockResolvedValue()
+  await openDemo()
+  fireEvent.click(screen.getByRole('button', { name: 'Summary' }))
+  const box = (await screen.findByRole('textbox', { name: 'Summary' })) as HTMLTextAreaElement
+  await waitFor(() => expect(box.value).toBe('hello'))
+  fireEvent.change(box, { target: { value: 'hello edited' } })
+  fireEvent.pointerDown(screen.getByRole('button', { name: 'Project menu' }), { button: 0 })
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Delete Project' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+  await waitFor(() => expect(window.location.hash).toBe('#/'))
+  expect(screen.queryByRole('alertdialog', { name: 'Discard changes?' })).toBeNull()
+})

@@ -193,7 +193,10 @@ function Shell() {
                   setDeletingProject(false)
                   api
                     .deleteProject(route.projectId)
-                    .then(() => navigate({ name: 'home' }))
+                    .then(() => {
+                      summaryDirty.current = false
+                      navigate({ name: 'home' })
+                    })
                     .catch((e) => toast.error(errorText(e)))
                 }}
                 onCancel={() => setDeletingProject(false)}
