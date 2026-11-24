@@ -11,7 +11,7 @@ class FakeSource {
 }
 
 const graph: Graph = {
-  project: { id: 1, name: 'demo' },
+  project: { id: 1, name: 'demo', status: 'in_progress' },
   branches: [
     {
       id: 1,
@@ -49,8 +49,8 @@ beforeEach(() => {
   window.location.hash = ''
   vi.stubGlobal('EventSource', FakeSource)
   vi.spyOn(api, 'listProjects').mockResolvedValue([
-    { id: 1, name: 'demo' },
-    { id: 2, name: 'other' },
+    { id: 1, name: 'demo', status: 'in_progress' },
+    { id: 2, name: 'other', status: 'in_progress' },
   ])
   vi.spyOn(api, 'getGraph').mockResolvedValue(graph)
   vi.spyOn(api, 'getSummary').mockResolvedValue({ version: 1, body: 'hello' })
@@ -95,7 +95,7 @@ test('Home button returns to the list', async () => {
 })
 
 test('New project creates and opens it', async () => {
-  vi.spyOn(api, 'createProject').mockResolvedValue({ id: 9, name: 'fresh' })
+  vi.spyOn(api, 'createProject').mockResolvedValue({ id: 9, name: 'fresh', status: 'in_progress' })
   render(<App />)
   fireEvent.click(await screen.findByRole('button', { name: 'New project' }))
   const create = screen.getByRole('button', { name: 'Create project' }) as HTMLButtonElement
@@ -156,4 +156,36 @@ test('lane label opens Branch; double-click opens New branch', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Close' }))
   fireEvent.doubleClick(document.querySelector('.graph-wrap')!)
   expect(screen.getByRole('heading', { name: 'New branch' })).toBeTruthy()
+})
+
+test('project menu marks complete', async () => {
+  const set = vi.spyOn(api, 'setProjectStatus').mockResolvedValue({ id: 1, name: 'demo', status: 'complete' })
+  window.location.hash = '#/projects/1'
+  render(<App />)
+  fireEvent.pointerDown(await screen.findByRole('button', { name: 'Project menu' }), { button: 0 })
+  expect(screen.queryByRole('menuitem', { name: 'Mark as In Progress' })).toBeNull()
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Mark as Complete' }))
+  await waitFor(() => expect(set).toHaveBeenCalledWith(1, 'complete'))
+})
+
+test('project menu on a complete project offers In Progress', async () => {
+  vi.mocked(api.getGraph).mockResolvedValue({ ...graph, project: { ...graph.project, status: 'complete' } })
+  window.location.hash = '#/projects/1'
+  render(<App />)
+  fireEvent.pointerDown(await screen.findByRole('button', { name: 'Project menu' }), { button: 0 })
+  expect(screen.getByRole('menuitem', { name: 'Mark as In Progress' })).toBeTruthy()
+  expect(screen.queryByRole('menuitem', { name: 'Mark as Complete' })).toBeNull()
+})
+
+test('delete project confirms then goes home', async () => {
+  const del = vi.spyOn(api, 'deleteProject').mockResolvedValue()
+  window.location.hash = '#/projects/1'
+  render(<App />)
+  fireEvent.pointerDown(await screen.findByRole('button', { name: 'Project menu' }), { button: 0 })
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Delete Project' }))
+  expect(screen.getByText('Delete "demo"?')).toBeTruthy()
+  expect(del).not.toHaveBeenCalled()
+  fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+  await waitFor(() => expect(del).toHaveBeenCalledWith(1))
+  await waitFor(() => expect(window.location.hash).toBe('#/'))
 })

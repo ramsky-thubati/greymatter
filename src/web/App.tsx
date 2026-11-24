@@ -12,6 +12,7 @@ import { errorText } from './errors.js'
 import { GraphView } from './graph/GraphView.js'
 import { HeaderBar } from './HeaderBar.js'
 import { Home } from './Home.js'
+import { ProjectMenu } from './ProjectMenu.js'
 import { type Route, useRoute } from './route.js'
 import { SummaryTab } from './SummaryTab.js'
 import { ConfirmAlert } from './ui/ConfirmAlert.js'
@@ -42,6 +43,7 @@ function Shell() {
   const [addTo, setAddTo] = useState<number | null>(null)
   const [openBranch, setOpenBranch] = useState<number | null>(null)
   const [newBranch, setNewBranch] = useState<{ fromTask?: number } | null>(null)
+  const [deletingProject, setDeletingProject] = useState(false)
   const closeTask = useCallback(() => setOpenTask(null), [])
   const closeBranch = useCallback(() => setOpenBranch(null), [])
   const summaryDirty = useRef(false)
@@ -61,6 +63,7 @@ function Shell() {
     setOpenBranch(null)
     setNewBranch(null)
     setDeleting(null)
+    setDeletingProject(false)
   }, [projectId])
 
   const onDirtyChange = useCallback((dirty: boolean) => {
@@ -121,6 +124,17 @@ function Shell() {
                 </button>
               </nav>
             }
+            end={
+              graph && (
+                <ProjectMenu
+                  status={graph.project.status}
+                  onStatus={(status) =>
+                    api.setProjectStatus(route.projectId, status).catch((e) => toast.error(errorText(e)))
+                  }
+                  onDelete={() => setDeletingProject(true)}
+                />
+              )
+            }
           />
           <main className="content">
             {route.tab === 'graph' && graph && (
@@ -167,6 +181,22 @@ function Shell() {
                 target={deleting}
                 onDone={() => setDeleting(null)}
                 onCancel={() => setDeleting(null)}
+              />
+            )}
+            {graph && deletingProject && (
+              <ConfirmAlert
+                title={`Delete "${graph.project.name}"?`}
+                body="This removes all its branches, tasks and summaries. It can't be undone."
+                confirmLabel="Delete"
+                destructive
+                onConfirm={() => {
+                  setDeletingProject(false)
+                  api
+                    .deleteProject(route.projectId)
+                    .then(() => navigate({ name: 'home' }))
+                    .catch((e) => toast.error(errorText(e)))
+                }}
+                onCancel={() => setDeletingProject(false)}
               />
             )}
             {route.tab === 'summary' && (

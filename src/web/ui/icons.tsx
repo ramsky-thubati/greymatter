@@ -82,3 +82,11 @@ export const CheckIcon = (p: P) => (
     <path d="M3.5 8.5l3 3 6-7" />
   </svg>
 )
+
+export const MoreIcon = (p: P) => (
+  <svg {...base(p)} fill="currentColor" stroke="none">
+    <circle cx="3.5" cy="8" r="1.3" />
+    <circle cx="8" cy="8" r="1.3" />
+    <circle cx="12.5" cy="8" r="1.3" />
+  </svg>
+)
