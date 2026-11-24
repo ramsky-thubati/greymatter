@@ -189,3 +189,28 @@ test('delete project confirms then goes home', async () => {
   await waitFor(() => expect(del).toHaveBeenCalledWith(1))
   await waitFor(() => expect(window.location.hash).toBe('#/'))
 })
+
+test('home groups completed projects in a collapsed section', async () => {
+  vi.mocked(api.listProjects).mockResolvedValue([
+    { id: 1, name: 'demo', status: 'in_progress' },
+    { id: 2, name: 'other', status: 'complete' },
+  ])
+  render(<App />)
+  const summary = await screen.findByText('Completed (1)')
+  expect((summary.closest('details') as HTMLDetailsElement).open).toBe(false)
+  expect(summary.closest('details')?.textContent).toContain('other')
+  expect(screen.getByText('demo').closest('details')).toBeNull()
+})
+
+test('no empty hint when every project is complete', async () => {
+  vi.mocked(api.listProjects).mockResolvedValue([{ id: 2, name: 'other', status: 'complete' }])
+  render(<App />)
+  await screen.findByText('Completed (1)')
+  expect(screen.queryByText('No projects yet.')).toBeNull()
+})
+
+test('no Completed section when nothing is complete', async () => {
+  render(<App />)
+  await screen.findByText('demo')
+  expect(screen.queryByText(/^Completed/)).toBeNull()
+})

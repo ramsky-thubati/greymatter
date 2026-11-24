@@ -404,6 +404,27 @@
 .home .row-btn svg {
   color: var(--dim);
 }
+.home .boxed + .completed {
+  margin-top: 1.5rem;
+}
+.completed > summary {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.completed > summary::-webkit-details-marker {
+  display: none;
+}
+.completed > summary svg {
+  color: var(--dim);
+  transition: transform 120ms ease;
+}
+.completed[open] > summary svg {
+  transform: rotate(90deg);
+}
 
 ul.boxed {
   list-style: none;
