@@ -9,7 +9,8 @@ CREATE TABLE IF NOT EXISTS projects (
   name TEXT NOT NULL UNIQUE COLLATE NOCASE,
   next_task_num INTEGER NOT NULL DEFAULT 1,
   created_at TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'in_progress' CHECK (status IN ('in_progress','complete'))
+  status TEXT NOT NULL DEFAULT 'in_progress' CHECK (status IN ('in_progress','complete')),
+  updated_at TEXT
 );
 CREATE TABLE IF NOT EXISTS branches (
   id INTEGER PRIMARY KEY,
@@ -72,6 +73,8 @@ function migrate(db: Db): void {
     db.exec(
       "ALTER TABLE projects ADD COLUMN status TEXT NOT NULL DEFAULT 'in_progress' CHECK (status IN ('in_progress','complete'))",
     )
+  if (!hasColumn(db, 'projects', 'updated_at')) db.exec('ALTER TABLE projects ADD COLUMN updated_at TEXT')
+  db.exec('UPDATE projects SET updated_at = created_at WHERE updated_at IS NULL')
 }
 
 function migrateBranchColor(db: Db): void {

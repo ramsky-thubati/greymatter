@@ -404,6 +404,14 @@
 .home .row-btn svg {
   color: var(--dim);
 }
+.list-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.35rem;
+}
+.sort-btn {
+  font-size: var(--t-sm);
+}
 .home .boxed + .completed {
   margin-top: 1.5rem;
 }

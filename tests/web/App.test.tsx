@@ -5,13 +5,15 @@ import type { Graph } from '../../src/core/graph.js'
 import { api } from '../../src/web/api.js'
 import { App } from '../../src/web/App.js'
 
+const T = '2026-01-01T00:00:00.000Z'
+
 class FakeSource {
   addEventListener() {}
   close() {}
 }
 
 const graph: Graph = {
-  project: { id: 1, name: 'demo', status: 'in_progress' },
+  project: { id: 1, name: 'demo', status: 'in_progress', createdAt: T, updatedAt: T },
   branches: [
     {
       id: 1,
@@ -49,8 +51,8 @@ beforeEach(() => {
   window.location.hash = ''
   vi.stubGlobal('EventSource', FakeSource)
   vi.spyOn(api, 'listProjects').mockResolvedValue([
-    { id: 1, name: 'demo', status: 'in_progress' },
-    { id: 2, name: 'other', status: 'in_progress' },
+    { id: 1, name: 'demo', status: 'in_progress', createdAt: T, updatedAt: T },
+    { id: 2, name: 'other', status: 'in_progress', createdAt: T, updatedAt: T },
   ])
   vi.spyOn(api, 'getGraph').mockResolvedValue(graph)
   vi.spyOn(api, 'getSummary').mockResolvedValue({ version: 1, body: 'hello' })
@@ -61,6 +63,7 @@ afterEach(() => {
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
   window.location.hash = ''
+  localStorage.clear()
 })
 
 const openDemo = async () => {
@@ -95,7 +98,7 @@ test('Home button returns to the list', async () => {
 })
 
 test('New project creates and opens it', async () => {
-  vi.spyOn(api, 'createProject').mockResolvedValue({ id: 9, name: 'fresh', status: 'in_progress' })
+  vi.spyOn(api, 'createProject').mockResolvedValue({ id: 9, name: 'fresh', status: 'in_progress', createdAt: T, updatedAt: T })
   render(<App />)
   fireEvent.click(await screen.findByRole('button', { name: 'New project' }))
   const create = screen.getByRole('button', { name: 'Create project' }) as HTMLButtonElement
@@ -159,7 +162,7 @@ test('lane label opens Branch; double-click opens New branch', async () => {
 })
 
 test('project menu marks complete', async () => {
-  const set = vi.spyOn(api, 'setProjectStatus').mockResolvedValue({ id: 1, name: 'demo', status: 'complete' })
+  const set = vi.spyOn(api, 'setProjectStatus').mockResolvedValue({ id: 1, name: 'demo', status: 'complete', createdAt: T, updatedAt: T })
   window.location.hash = '#/projects/1'
   render(<App />)
   fireEvent.pointerDown(await screen.findByRole('button', { name: 'Project menu' }), { button: 0 })
@@ -192,8 +195,8 @@ test('delete project confirms then goes home', async () => {
 
 test('home groups completed projects in a collapsed section', async () => {
   vi.mocked(api.listProjects).mockResolvedValue([
-    { id: 1, name: 'demo', status: 'in_progress' },
-    { id: 2, name: 'other', status: 'complete' },
+    { id: 1, name: 'demo', status: 'in_progress', createdAt: T, updatedAt: T },
+    { id: 2, name: 'other', status: 'complete', createdAt: T, updatedAt: T },
   ])
   render(<App />)
   const summary = await screen.findByText('Completed (1)')
@@ -203,7 +206,7 @@ test('home groups completed projects in a collapsed section', async () => {
 })
 
 test('no empty hint when every project is complete', async () => {
-  vi.mocked(api.listProjects).mockResolvedValue([{ id: 2, name: 'other', status: 'complete' }])
+  vi.mocked(api.listProjects).mockResolvedValue([{ id: 2, name: 'other', status: 'complete', createdAt: T, updatedAt: T }])
   render(<App />)
   await screen.findByText('Completed (1)')
   expect(screen.queryByText('No projects yet.')).toBeNull()
@@ -227,4 +230,39 @@ test('deleting with unsaved summary edits goes straight home', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
   await waitFor(() => expect(window.location.hash).toBe('#/'))
   expect(screen.queryByRole('alertdialog', { name: 'Discard changes?' })).toBeNull()
+})
+
+const homeOrder = (root: Element | null = document.querySelector('.home > .boxed')) =>
+  [...(root?.querySelectorAll('.row-btn') ?? [])].map((b) => b.textContent)
+
+const pickSort = (current: string, next: string) => {
+  fireEvent.pointerDown(screen.getByRole('button', { name: `Sort: ${current}` }), { button: 0 })
+  fireEvent.click(screen.getByRole('menuitemradio', { name: next }))
+}
+
+test('home sorts active projects and remembers the choice; completed untouched', async () => {
+  vi.mocked(api.listProjects).mockResolvedValue([
+    { id: 1, name: 'beta', status: 'in_progress', createdAt: '2026-01-03', updatedAt: '2026-01-04' },
+    { id: 2, name: 'Alpha', status: 'in_progress', createdAt: '2026-01-01', updatedAt: '2026-01-09' },
+    { id: 3, name: 'gamma', status: 'in_progress', createdAt: '2026-01-05', updatedAt: '2026-01-06' },
+    { id: 4, name: 'zed', status: 'complete', createdAt: '2026-01-02', updatedAt: '2026-01-02' },
+    { id: 5, name: 'ant', status: 'complete', createdAt: '2026-01-07', updatedAt: '2026-01-08' },
+  ])
+  const { unmount } = render(<App />)
+  await screen.findByText('Alpha')
+  const doneOrder = homeOrder(document.querySelector('.completed'))
+  expect(homeOrder()).toEqual(['Alpha', 'gamma', 'beta'])
+
+  pickSort('Last updated', 'Created')
+  expect(homeOrder()).toEqual(['gamma', 'beta', 'Alpha'])
+
+  pickSort('Created', 'Name')
+  expect(homeOrder()).toEqual(['Alpha', 'beta', 'gamma'])
+  expect(homeOrder(document.querySelector('.completed'))).toEqual(doneOrder)
+
+  unmount()
+  render(<App />)
+  await screen.findByText('Alpha')
+  expect(screen.getByRole('button', { name: 'Sort: Name' })).toBeTruthy()
+  expect(homeOrder()).toEqual(['Alpha', 'beta', 'gamma'])
 })

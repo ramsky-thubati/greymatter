@@ -6,6 +6,8 @@ export interface Project {
   id: number
   name: string
   status: ProjectStatus
+  createdAt: string
+  updatedAt: string
 }
 
 export interface Branch {

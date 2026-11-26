@@ -17,6 +17,7 @@ import {
   getProject,
   listProjects,
   setProjectStatus,
+  touchProject,
 } from '../core/projects.js'
 import { deleteBranch, deleteTask, moveRoot } from '../core/structure.js'
 import { createCheckpoint, getLiveSummary, listSummaryVersions, updateLiveSummary } from '../core/summary.js'
@@ -116,6 +117,7 @@ export function createApp(db: Db, events: ProjectEvents, opts: { staticDir?: str
   const bidOf = (c: Context) => positiveInt(c.req.param('bid') ?? '', 'branch id')
   const taskOf = (c: Context) => parseTaskId(c.req.param('task') ?? '')
   const mutated = <T>(pid: number, result: T): T => {
+    touchProject(db, pid)
     events.emit(pid)
     return result
   }

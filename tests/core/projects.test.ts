@@ -12,6 +12,7 @@ import {
   getProject,
   listProjects,
   setProjectStatus,
+  touchProject,
 } from '../../src/core/projects.js'
 import { createBranch, createTask } from '../../src/core/tasks.js'
 import { addCheckpoint, mainBranchId } from './helpers.js'
@@ -72,5 +73,17 @@ test('old db without status column migrates to in_progress', () => {
     next_task_num INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL);
     INSERT INTO projects (name, created_at) VALUES ('legacy', '2026-01-01')`)
   raw.close()
-  expect(listProjects(openDb(path))).toEqual([{ id: 1, name: 'legacy', status: 'in_progress' }])
+  expect(listProjects(openDb(path))).toEqual([
+    { id: 1, name: 'legacy', status: 'in_progress', createdAt: '2026-01-01', updatedAt: '2026-01-01' },
+  ])
+})
+
+test('new project has created and updated timestamps; touch bumps updated', async () => {
+  const p = createProject(db, 'Stamped')
+  expect(p.updatedAt).toBe(p.createdAt)
+  await new Promise((r) => setTimeout(r, 5))
+  touchProject(db, p.id)
+  const after = getProject(db, p.id)
+  expect(after.createdAt).toBe(p.createdAt)
+  expect(after.updatedAt > p.updatedAt).toBe(true)
 })

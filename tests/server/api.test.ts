@@ -229,6 +229,15 @@ test('PATCH project status', async () => {
   expect(list[0].status).toBe('complete')
 })
 
+test('task mutation bumps project updatedAt', async () => {
+  const [before] = await (await get('/api/projects')).json()
+  await new Promise((r) => setTimeout(r, 5))
+  expect((await post(`/api/projects/${pid}/tasks`, { branchId: main, title: 'bump' })).status).toBe(200)
+  const [after] = await (await get('/api/projects')).json()
+  expect(after.updatedAt > before.updatedAt).toBe(true)
+  expect(after.createdAt).toBe(before.createdAt)
+})
+
 test('PATCH project rejects unknown status', async () => {
   expect((await patch(`/api/projects/${pid}`, { status: 'done' })).status).toBe(400)
 })

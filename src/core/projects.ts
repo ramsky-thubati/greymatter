@@ -7,10 +7,18 @@ interface ProjectRow {
   id: number
   name: string
   status: ProjectStatus
+  created_at: string
+  updated_at: string
 }
 
-const COLS = 'id, name, status'
-const toProject = (row: ProjectRow): Project => ({ id: row.id, name: row.name, status: row.status })
+const COLS = 'id, name, status, created_at, updated_at'
+const toProject = (row: ProjectRow): Project => ({
+  id: row.id,
+  name: row.name,
+  status: row.status,
+  createdAt: row.created_at,
+  updatedAt: row.updated_at,
+})
 
 export function createProject(db: Db, name: string): Project {
   const clean = name.trim()
@@ -20,8 +28,8 @@ export function createProject(db: Db, name: string): Project {
     if (existing) throw new DomainError('conflict', `Project "${clean}" already exists`)
     const now = new Date().toISOString()
     const { lastInsertRowid } = db
-      .prepare('INSERT INTO projects (name, created_at) VALUES (?, ?)')
-      .run(clean, now)
+      .prepare('INSERT INTO projects (name, created_at, updated_at) VALUES (?, ?, ?)')
+      .run(clean, now, now)
     const id = Number(lastInsertRowid)
     db.prepare("INSERT INTO branches (project_id, name, created_at, color) VALUES (?, 'main', ?, ?)").run(
       id,
@@ -29,7 +37,7 @@ export function createProject(db: Db, name: string): Project {
       BRANCH_COLORS[0],
     )
     db.prepare("INSERT INTO summary_versions (project_id, version, body) VALUES (?, 1, '')").run(id)
-    return { id, name: clean, status: 'in_progress' }
+    return { id, name: clean, status: 'in_progress', createdAt: now, updatedAt: now }
   })
 }
 
@@ -54,9 +62,13 @@ export function findProjectByName(db: Db, name: string): Project {
 export function setProjectStatus(db: Db, id: number, status: ProjectStatus): Project {
   return tx(db, () => {
     getProject(db, id)
-    db.prepare('UPDATE projects SET status = ? WHERE id = ?').run(status, id)
+    db.prepare('UPDATE projects SET status = ?, updated_at = ? WHERE id = ?').run(status, new Date().toISOString(), id)
     return getProject(db, id)
   })
+}
+
+export function touchProject(db: Db, id: number): void {
+  db.prepare('UPDATE projects SET updated_at = ? WHERE id = ?').run(new Date().toISOString(), id)
 }
 
 export function deleteProject(db: Db, id: number): void {
